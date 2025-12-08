@@ -29,15 +29,16 @@ const doc = new GoogleSpreadsheet(process.env.1CKbgNt7yMMm3H_s6n3wxKVrDcedyEdZHD
 const creds = JSON.parse(Buffer.from(process.env.GOOGLE_CREDS_BASE64, 'base64').toString('utf8'));
 await doc.useServiceAccountAuth(creds);
 await doc.loadInfo();
-const sheet = doc.sheetsByIndex[0]; // أول شيت
+const sheet = doc.sheetsByIndex[1];
 
 // ====== FUNCTION TO CHECK NUMBERS ======
 async function checkSheetAndSendMessages() {
-    const rows = await sheet.getRows();
-    for (const row of rows) {
-        const channelName = row.Name;
-        const number = Number(row.DP);
-
+    const rows = await sheet.getRows({ offset: 0 }); // يقرأ كل الصفوف
+for (const row of rows) {
+    // row._rawData هو array لكل خلايا الصف
+    const channelName = row._rawData[0];
+    const number = Number(row._rawData[5]);
+    
         const channel = client.channels.cache.find(c => c.name === channelName);
         if (!channel) continue;
 
