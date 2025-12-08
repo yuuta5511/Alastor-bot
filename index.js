@@ -1,6 +1,5 @@
 import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
-import { GoogleSpreadsheet } from "google-spreadsheet";
 import fs from "fs";
 
 const app = express();
