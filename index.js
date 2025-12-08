@@ -25,11 +25,22 @@ client.login(token)
     });
 
 // ====== GOOGLE SHEET SETUP ======
+import { GoogleSpreadsheet } from "google-spreadsheet";
+
 const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-const creds = JSON.parse(Buffer.from(process.env.GOOGLE_CREDS_BASE64, 'base64').toString('utf8'));
-await doc.useServiceAccountAuth(creds);
+
+const creds = JSON.parse(
+  Buffer.from(process.env.GOOGLE_CREDS_BASE64, "base64").toString("utf8")
+);
+
+await doc.useServiceAccountAuth({
+  client_email: creds.client_email,
+  private_key: creds.private_key.replace(/\\n/g, "\n"),
+});
+
 await doc.loadInfo();
 const sheet = doc.sheetsByIndex[1];
+
 
 // ====== FUNCTION TO CHECK NUMBERS ======
 async function checkSheetAndSendMessages() {
