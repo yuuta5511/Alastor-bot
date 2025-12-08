@@ -26,7 +26,8 @@ client.login(token)
 
 // ====== GOOGLE SHEET SETUP ======
 const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-const creds = JSON.parse(fs.readFileSync("./service-account.json")); // أو ممكن تحطه في متغير بيئي
+const creds = JSON.parse(Buffer.from(process.env.GOOGLE_CREDS_BASE64, 'base64').toString('utf8'));
+
 await doc.useServiceAccountAuth(creds);
 await doc.loadInfo();
 const sheet = doc.sheetsByIndex[0]; // أول شيت
