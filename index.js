@@ -33,54 +33,75 @@ const auth = new google.auth.GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/spreadsheets"]
 });
 
-const sheets = google.sheets({ version: "v4", auth: await auth.getClient() });
+const sheetsClient = await auth.getClient();
+const sheets = google.sheets({ version: "v4", auth: sheetsClient });
+
 const spreadsheetId = process.env.SHEET_ID;
 const sheetName = "Sheet2"; // اسم الصفحة الثانية
 
 // ====== FUNCTION TO CHECK NUMBERS ======
 async function checkSheetAndSendMessages() {
-    const res = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `${sheetName}!A:Z` // كل الأعمدة حتى Z
-    });
+    try {
+        const res = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${sheetName}!A:Z` // كل الأعمدة حتى Z
+        });
 
-    const rows = res.data.values || [];
-    for (const row of rows) {
-        const channelName = row[0]; // العمود الأول فيه اسم الروم
-        const number = Number(row[5]); // العمود السادس فيه الرقم (عدّد حسب ترتيب الأعمدة عندك)
+        const rows = res.data.values || [];
 
-        const channel = client.channels.cache.find(c => c.name === channelName);
-        if (!channel) continue;
+        for (const row of rows) {
+            const channelName = row[0]; // العمود الأول فيه اسم الروم
+            const number = Number(row[5]); // العمود السادس فيه الرقم
 
-        if (number === 5) {
-            const users = [
-                "1269706276288467057",
-                "1269706276288467058",
-                "1270089817517981859"
-            ];
-            await channel.send(`${users.map(u => `<@${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
+            const channel = client.channels.cache.find(c => c.name === channelName);
+            if (!channel) continue;
+
+            if (number === 5) {
+                const users = [
+                    "1269706276288467057",
+                    "1269706276288467058",
+                    "1270089817517981859"
+                ];
+                await channel.send(`${users.map(u => `<@${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
+            }
+
+            if (number === 7) {
+                const user = "895989670142435348";
+                await channel.send(`<@${user}> Come here`);
+            }
         }
-
-        if (number === 7) {
-            const user = "895989670142435348";
-            await channel.send(`<@${user}> Come here`);
-        }
+    } catch (error) {
+        console.error("❌ Error checking sheet:", error);
     }
 }
 
-// ====== RUN CHECK EVERY MINUTE ======
-setInterval(checkSheetAndSendMessages, 60 * 1000);
+// ====== WAIT FOR BOT TO BE READY ======
+client.once('ready', () => {
+    console.log('✅ Discord bot is ready!');
+    // Start checking after bot is ready
+    checkSheetAndSendMessages();
+    setInterval(checkSheetAndSendMessages, 60 * 1000);
+});
 
 // ====== API ENDPOINT (اختياري) ======
 app.post("/update", async (req, res) => {
     const { channelName, number } = req.body;
-    if (!channelName || number === undefined) return res.status(400).send("Missing data");
+    
+    if (!channelName || number === undefined) {
+        return res.status(400).send("Missing data");
+    }
 
     const channel = client.channels.cache.find(c => c.name === channelName);
-    if (!channel) return res.status(404).send("Channel not found");
+    if (!channel) {
+        return res.status(404).send("Channel not found");
+    }
 
-    if (number == 5) await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
-    if (number == 7) await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
+    if (number == 5) {
+        await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
+    }
+    if (number == 7) {
+        await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
+    }
 
     res.send("OK");
 });
