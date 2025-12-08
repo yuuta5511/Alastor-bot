@@ -25,7 +25,7 @@ client.login(token)
     });
 
 // ====== GOOGLE SHEET SETUP ======
-const doc = new GoogleSpreadsheet(process.env.1CKbgNt7yMMm3H_s6n3wxKVrDcedyEdZHDjKFUGFLlLU);
+const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 const creds = JSON.parse(Buffer.from(process.env.GOOGLE_CREDS_BASE64, 'base64').toString('utf8'));
 await doc.useServiceAccountAuth(creds);
 await doc.loadInfo();
