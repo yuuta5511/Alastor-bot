@@ -26,15 +26,19 @@ client.login(token)
 
 // ====== GOOGLE SHEET SETUP ======
 
+import { GoogleSpreadsheet } from "google-spreadsheet";
+
 const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
+// لو عندك JSON مفكوك من Base64 في Environment Variable:
 const creds = JSON.parse(
   Buffer.from(process.env.GOOGLE_CREDS_BASE64, "base64").toString("utf8")
 );
 
+// الطريقة الجديدة للمصادقة:
 await doc.useServiceAccountAuth({
   client_email: creds.client_email,
-  private_key: creds.private_key.replace(/\\n/g, "\n"),
+  private_key: creds.private_key.replace(/\\n/g, "\n"), // مهم
 });
 
 await doc.loadInfo();
