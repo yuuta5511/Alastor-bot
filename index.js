@@ -25,7 +25,7 @@ client.login(token)
     });
 
 // ====== GOOGLE SHEET SETUP ======
-const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
+const doc = new GoogleSpreadsheet(process.env.1CKbgNt7yMMm3H_s6n3wxKVrDcedyEdZHDjKFUGFLlLU);
 const creds = JSON.parse(Buffer.from(process.env.GOOGLE_CREDS_BASE64, 'base64').toString('utf8'));
 await doc.useServiceAccountAuth(creds);
 await doc.loadInfo();
@@ -35,18 +35,22 @@ const sheet = doc.sheetsByIndex[0]; // أول شيت
 async function checkSheetAndSendMessages() {
     const rows = await sheet.getRows();
     for (const row of rows) {
-        const channelName = row.RoomName;
-        const number = Number(row.Number);
+        const channelName = row.Name;
+        const number = Number(row.DP);
 
         const channel = client.channels.cache.find(c => c.name === channelName);
         if (!channel) continue;
 
         if (number === 5) {
-            await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
+            const user1 = "1269706276288467057";
+            const user2 = "1269706276288467058";
+            const user3 = "1270089817517981859";
+            await channel.send(`<@${user1}> <@${user2}> <@${user3}> Faster or i will call my suber visor on u ￣へ￣ `);
         }
 
         if (number === 7) {
-            await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
+            const user1 = "895989670142435348";
+            await channel.send(`<@${user1}> Come here `);
         }
     }
 }
