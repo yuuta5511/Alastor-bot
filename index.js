@@ -24,9 +24,7 @@ client.login(token)
     });
 
 // ====== GOOGLE SHEET SETUP ======
-const creds = JSON.parse(
-  Buffer.from(process.env.GOOGLE_CREDS_BASE64, "base64").toString("utf8")
-);
+const creds = JSON.parse(process.env.GOOGLE_CREDS);
 
 const auth = new google.auth.GoogleAuth({
     credentials: creds,
