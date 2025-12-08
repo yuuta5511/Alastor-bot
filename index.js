@@ -1,89 +1,89 @@
+// index.js
 import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
-import fs from "fs";
+import { GoogleSpreadsheet } from "google-spreadsheet";
 
 const app = express();
 app.use(express.json());
 
 // ====== DISCORD BOT ======
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
 
 const token = process.env.BOT_TOKEN?.trim();
 if (!token) {
-    console.error("❌ BOT_TOKEN مش موجود!");
-    process.exit(1);
+  console.error("❌ BOT_TOKEN مش موجود!");
+  process.exit(1);
 }
 
 client.login(token)
-    .then(() => console.log(`✅ Bot logged in as ${client.user.tag}`))
-    .catch(err => {
-        console.error("❌ فشل تسجيل الدخول:", err);
-        process.exit(1);
-    });
+  .then(() => console.log(`✅ Bot logged in as ${client.user.tag}`))
+  .catch(err => {
+    console.error("❌ فشل تسجيل الدخول:", err);
+    process.exit(1);
+  });
 
 // ====== GOOGLE SHEET SETUP ======
-
-import { GoogleSpreadsheet } from "google-spreadsheet";
-
 const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
-// لو عندك JSON مفكوك من Base64 في Environment Variable:
+// مفكوك من Base64 في Environment Variable
 const creds = JSON.parse(
   Buffer.from(process.env.GOOGLE_CREDS_BASE64, "base64").toString("utf8")
 );
 
-// الطريقة الجديدة للمصادقة:
+// الطريقة الحديثة للمصادقة
 await doc.useServiceAccountAuth({
   client_email: creds.client_email,
-  private_key: creds.private_key.replace(/\\n/g, "\n"), // مهم
+  private_key: creds.private_key.replace(/\\n/g, "\n"),
 });
 
 await doc.loadInfo();
-const sheet = doc.sheetsByIndex[1];
 
+// قراءة الصفحة الثانية (index = 1)
+const sheet = doc.sheetsByIndex[1];
 
 // ====== FUNCTION TO CHECK NUMBERS ======
 async function checkSheetAndSendMessages() {
-    const rows = await sheet.getRows({ offset: 0 }); // يقرأ كل الصفوف
-for (const row of rows) {
-    // row._rawData هو array لكل خلايا الصف
-    const channelName = row._rawData[0];
-    const number = Number(row._rawData[5]);
-    
-        const channel = client.channels.cache.find(c => c.name === channelName);
-        if (!channel) continue;
+  const rows = await sheet.getRows({ offset: 0 });
+  
+  for (const row of rows) {
+    // row._rawData يحتوي على كل خلايا الصف كـ array
+    const channelName = row._rawData[0]; // العمود 1 = اسم الروم
+    const number = Number(row._rawData[1]); // العمود 2 = الرقم (غير ثابت حسب شيتك)
 
-        if (number === 5) {
-            const user1 = "1269706276288467057";
-            const user2 = "1269706276288467058";
-            const user3 = "1270089817517981859";
-            await channel.send(`<@${user1}> <@${user2}> <@${user3}> Faster or i will call my suber visor on u ￣へ￣ `);
-        }
+    const channel = client.channels.cache.find(c => c.name === channelName);
+    if (!channel) continue;
 
-        if (number === 7) {
-            const user1 = "895989670142435348";
-            await channel.send(`<@${user1}> Come here `);
-        }
+    // مثال لمنشنات متعددة عند الرقم 5
+    if (number === 5) {
+      const mentions = ["1269706276288467057", "1269706276288467058", "1270089817517981859"];
+      await channel.send(`${mentions.map(id => `<@${id}>`).join(" ")} Faster or i will call my subervisors on u`);
     }
+
+    // مثال لمنشن واحد عند الرقم 7
+    if (number === 7) {
+      const mentions = ["895989670142435348"];
+      await channel.send(`${mentions.map(id => `<@${id}>`).join(" ")} come here`);
+    }
+  }
 }
 
 // ====== RUN CHECK EVERY MINUTE ======
 setInterval(checkSheetAndSendMessages, 60 * 1000);
 
-// ====== API ENDPOINT (اختياري) ======
+// ====== OPTIONAL API ENDPOINT ======
 app.post("/update", async (req, res) => {
-    const { channelName, number } = req.body;
-    if (!channelName || number === undefined) return res.status(400).send("Missing data");
+  const { channelName, number } = req.body;
+  if (!channelName || number === undefined) return res.status(400).send("Missing data");
 
-    const channel = client.channels.cache.find(c => c.name === channelName);
-    if (!channel) return res.status(404).send("Channel not found");
+  const channel = client.channels.cache.find(c => c.name === channelName);
+  if (!channel) return res.status(404).send("Channel not found");
 
-    if (number == 5) await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
-    if (number == 7) await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
+  if (number == 5) await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
+  if (number == 7) await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
 
-    res.send("OK");
+  res.send("OK");
 });
 
 app.listen(3000, () => console.log("API running"));
