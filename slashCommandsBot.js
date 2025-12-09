@@ -229,8 +229,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = process.env.SHEET_NAME || 'PROGRESS';
 
-            // قراءة الشيت
-          // ====== قراءة الشيت ======
+      // ====== قراءة الشيت ======
 const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${sheetName}!A:ZZ`,
@@ -275,31 +274,6 @@ if (!driveLink) {
     });
 }
 
-
-            // البحث عن المشروع باستخدام أول كلمتين
-            const roleFirstTwo = getFirstTwoWords(role.name);
-            const projectRow = rows.find(row => {
-                if (!row[0]) return false;
-                const sheetFirstTwo = getFirstTwoWords(row[0]);
-                return sheetFirstTwo === roleFirstTwo;
-            });
-
-            if (!projectRow) {
-                return interaction.reply({ 
-                    content: `❌ لم أجد المشروع "${role.name}" في الشيت!`, 
-                    ephemeral: true 
-                });
-            }
-
-            // جلب رابط Drive
-            const driveLink = projectRow[11];
-            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
-            if (!driveLink) {
-                return interaction.reply({ 
-                    content: '❌ لم أجد رابط Drive للمشروع!', 
-                    ephemeral: true 
-                });
-            }
 
             // استخراج File ID
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
