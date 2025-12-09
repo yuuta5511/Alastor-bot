@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "alastor-480600",
+  "private_key_id": "1f8b7e61ac18dc0d0953ad63e1385778829f1eda",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCkyHf6SG5kAm5q\nzoYwo0RgKWgKV54xWQcdHnRMVnraZHkeUcLtm/UtGHJhNmJOt1gXO6vOD2KXOfv+\nwKN6XH2GohLPT2AhVd6QTnoSQVdU7PXNMgyUV61At3ksDKMdIcDR1IdGDzSJl/YS\nn6ryjVQ8i/b3H/OZXrGfRJkAG8gItX70Umhm8tnzajKQyTtXsNWhc8kEviulWmcg\n7CN4I7afqrCxvdropFYOIHEfXTGAmvGyNdV7+AJtaF5yJmoZ3RDhFet4NzJ87jnB\nuUO0+yDKQ6T6mBxVC97e9Fa0bY4MPxOI8/OKE+xfnMcedgZVN2hwDFcLLpAiJoHs\n5W5xxt5LAgMBAAECggEAM/ljFldIMlUt/JQ9cRPeGjKVNUXjiI8bFk0nw3g3cbDl\nHvIM+KMLVvjyAsWDhm5/43wXuXvSzf4lBHpAVfTcRt3R7v+LQ5hxBbUq/Z0MbaX7\n9YfGvfdVlycHmiQ2QpcF2WkebbOYD5oVrFQeODjpi9tdvx6d2A8tGR4q4ATjOBN8\nwiA1dvbyZ/Pa8MHTHT4QAieIxC7GETWYQwcCN+ly8VEh/OCnP0uY3LcOUnz0TTew\nVCZSaUp0QpWdxWat6Uj627dXIlsql5wJfwD/jVtRFGtH/Q+5nmPKttdtKddVjGLt\ntG1NX7sx3OZLNvlgvdQZHirwamT0AgIElxTSDKa/QQKBgQDjpuqGSOttN5cO1j5X\n0rCYPpEcz1oL8Uv2qVZ6VUmdGIkLx00Hq5lWEFYtlfaoLRIgkk1wjLPpKJQ3aCl+\ndvZjtxVZ7nY8Us9Mps+WmTVYgLGSbnl13sNPYst39yRWbj5gZ2eLagp12qhIMKin\nw49Jb708m2zpVMPLaGWiErKGqwKBgQC5TWsoaNnetaEYWiT9nONxVijrJmyHomAi\nUC+orcw7Guorla+GvXKITb7VHBqY52Sij5h1MBm8pQuhcnuY/rias9oEdSeUhyU3\nWYXQJvhEwT/7obv2TbHAzft364LcvkIpvtGzUstCuejEKtaMwra18LECBccYhGpy\nJDq6dSOG4QKBgQCsq9VlJ3gSrkCQi2ZcHL2/rG1K6efF+S8CF601Ou2MD6kbWv8N\nW1YB1oBXMVEWfKEsPWwpez+XESVi5Unb14XJWnwCa4IY/UKpRDleZDT3PR3zEIJm\nKiIAW9Iy2y0ftZzwaF48e6EVhVVw9B9oqEdNj0h86PLyBE5CQZwdE4t/4wKBgElZ\nge9vAb8MuoX/OOFDNyzn5C6g+Rj/h3pNr2/fzBYhY0x5Zg+58hpOXBnTlBuujMFk\ngf7xWV65Hk98F7zKJ5zlUImvLkm27V5pi3SH2IKu1Hrw3Ix02MXvQ3mGujhS/7Gy\nnSOUxGzXVnJAWslBUj3W1tpsGxFzaQdhm/Wu5K9BAoGADaBL3rwWvv50v6aHljeU\n6pZcm8xMDXdbLC0wOhDL1QxoJ7Nn4pvDwWYlcg0L5Y5sWjgKdiCmSWuJjUoUbQsM\nQADrwcyGyDNxA4oSBbrfqLtd80qwkC67fIlChY4t0lWaPWpJrnxff6VHzUNWLkNP\nH8W1B9RSHcX9RBlXYRZBXX4=\n-----END PRIVATE KEY-----\n",
+  "client_email": "alastor@alastor-480600.iam.gserviceaccount.com",
+  "client_id": "118077125418042253729",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/alastor%40alastor-480600.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
