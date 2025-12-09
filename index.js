@@ -65,7 +65,29 @@ async function checkSheetAndSendMessages() {
                 .toLowerCase()
                 .replace(/\s+/g, '-');
 
-            const channel = client.channels.cache.find(c => c.name === discordChannelName);
+            // Function to remove emojis
+function removeEmojis(str) {
+    return str.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\u24C2|[\uD83C-\uDBFF\uDC00-\uDFFF])+?/g, '')
+              .replace(/:[^:\s]*(?:::[^:\s]*)*:/g, '') // remove :emoji_name:
+              .trim();
+}
+
+// Extract first two words (ignoring emojis)
+const cleanSheetName = removeEmojis(channelNameFromSheet)
+    .toLowerCase()
+    .split(/\s+/)
+    .slice(0, 2)
+    .join(" ");
+
+const channel = client.channels.cache.find(c => {
+    const cleanChannelName = removeEmojis(c.name)
+        .toLowerCase()
+        .split(/\s+/)
+        .slice(0, 2)
+        .join(" ");
+
+    return cleanChannelName === cleanSheetName;
+});
             if (!channel) continue;
 
             // Initialize tracking for this channel if not exists
