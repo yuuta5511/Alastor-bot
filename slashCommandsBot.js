@@ -245,6 +245,7 @@ if (!rows || rows.length === 0) {
 
 // ====== جلب رأس الأعمدة ======
 const header = rows[0];
+console.log("HEADER ROW:", header);
 
 // ====== البحث عن العمود الذي عنوانه V221 ======
 const driveColumnIndex = header.findIndex(col =>
