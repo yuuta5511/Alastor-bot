@@ -68,27 +68,48 @@ async function checkSheetAndSendMessages() {
            // ========================
 // تحويل الاسم وتنظيفه
 // ========================
+// ========================
+// تحويل الاسم وتنظيفه
+// ========================
 function normalizeName(name) {
     return name
         .toLowerCase()
-        .replace(/[^\w]+/g, " ") // ← استبدال أي علامة ترقيم أو فواصل بمسافة
-        .replace(/\s+/g, " ")    // ← توحيد المسافات
+        .replace(/[^\w]+/g, " ") // استبدال علامات الترقيم بمسافة
+        .replace(/\s+/g, " ")    // توحيد المسافات
         .trim();
 }
+
 // أخذ أول كلمتين فقط
 function firstTwoWords(name) {
-    return normalizeName(name).split(/\s+/).slice(0, 2).join(" ");
+    return normalizeName(name).split(" ").slice(0, 2).join(" ");
 }
 
 // ------------------------
-// إيجاد الروم بناء على أول كلمتين فقط
+// Debug Logs
 // ------------------------
 const targetTwoWords = firstTwoWords(channelNameFromSheet);
+console.log("📌 From Sheet (raw):", channelNameFromSheet);
+console.log("📌 From Sheet → normalized:", normalizeName(channelNameFromSheet));
+console.log("📌 From Sheet → firstTwoWords:", targetTwoWords);
 
-const channel = client.channels.cache.find(c => {
+let foundChannel = null;
+
+client.channels.cache.forEach(c => {
     const discordTwoWords = firstTwoWords(c.name);
-    return discordTwoWords === targetTwoWords;
+
+    console.log("— — — — — —");
+    console.log("🔍 Checking channel:", c.name);
+    console.log("Discord normalized:", normalizeName(c.name));
+    console.log("Discord firstTwoWords:", discordTwoWords);
+
+    if (discordTwoWords === targetTwoWords) {
+        console.log("🎯 MATCH FOUND:", c.name);
+        foundChannel = c;
+    }
 });
+
+const channel = foundChannel;
+
 
             if (!channel) continue;
 
