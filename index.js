@@ -51,8 +51,9 @@ function getFirstTwoWords(text) {
         .split(/\s+/)
         .filter(w => w.length > 0);
     
-    // Return first two words joined
-    return words.slice(0, 2).join(' ');
+    const result = words.slice(0, 2).join(' ');
+    console.log(`📝 First two words from "${text}": "${result}"`);
+    return result;
 }
 
 // ====== FUNCTION TO FIND MATCHING CHANNEL ======
@@ -60,11 +61,24 @@ function findMatchingChannel(sheetChannelName) {
     const firstTwoWords = getFirstTwoWords(sheetChannelName);
     if (!firstTwoWords) return null;
     
+    console.log(`🔍 Looking for channel matching: "${firstTwoWords}"`);
+    console.log(`📋 Available channels: ${client.channels.cache.map(c => c.name).join(', ')}`);
+    
     // Find channel where its name starts with the first two words
-    return client.channels.cache.find(c => {
+    const found = client.channels.cache.find(c => {
         const channelFirstTwo = getFirstTwoWords(c.name.replace(/-/g, ' '));
-        return channelFirstTwo === firstTwoWords;
+        const matches = channelFirstTwo === firstTwoWords;
+        console.log(`  Checking "${c.name}" -> "${channelFirstTwo}" -> ${matches ? '✅ MATCH' : '❌'}`);
+        return matches;
     });
+    
+    if (found) {
+        console.log(`✅ Found matching channel: ${found.name}`);
+    } else {
+        console.log(`❌ No matching channel found for "${sheetChannelName}"`);
+    }
+    
+    return found;
 }
 
 // ====== FUNCTION TO CHECK NUMBERS ======
@@ -76,14 +90,20 @@ async function checkSheetAndSendMessages() {
         });
 
         const rows = res.data.values || [];
+        console.log(`📊 Found ${rows.length} rows in sheet`);
 
         for (const row of rows) {
             const channelNameFromSheet = row[0]; // العمود الأول فيه اسم الروم
             const number = Number(row[5]); // العمود السادس فيه الرقم
             const status = row[7]; // العمود الثامن فيه الحالة
 
+            console.log(`\n📝 Processing row: Channel="${channelNameFromSheet}", Number=${number}, Status="${status}"`);
+
             // Skip if status is not "Ongoing"
-            if (status !== "Ongoing") continue;
+            if (status !== "Ongoing") {
+                console.log(`⏭️ Skipping - Status is not "Ongoing"`);
+                continue;
+            }
 
             // Find matching channel by first two words
             const channel = findMatchingChannel(channelNameFromSheet);
