@@ -230,15 +230,51 @@ slashBot.on('interactionCreate', async (interaction) => {
             const sheetName = process.env.SHEET_NAME || 'PROGRESS';
 
             // قراءة الشيت
-            const response = await sheets.spreadsheets.values.get({
-                spreadsheetId,
-                range: `${sheetName}!A:AL`,
-            });
+          // ====== قراءة الشيت ======
+const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A:ZZ`,
+});
 
-            const rows = response.data.values;
-            if (!rows || rows.length === 0) {
-                return interaction.reply({ content: '❌ الشيت فارغ!', ephemeral: true });
-            }
+const rows = response.data.values;
+if (!rows || rows.length === 0) {
+    return interaction.reply({ content: '❌ الشيت فارغ!', ephemeral: true });
+}
+
+// ====== تحديد عمود L بطريقة ديناميكية ======
+const header = rows[0];
+
+// ابحث عن عمود اسمه "L" (اللي هو حقيقةً العمود اللي فيه اللينك)
+const driveColumnIndex = 11; // العمود L
+
+// ====== البحث عن الصف الصحيح حسب أول كلمتين من اسم الرول ======
+const roleFirstTwo = getFirstTwoWords(role.name);
+
+const projectRow = rows.find(row => {
+    if (!row[0]) return false;
+    const sheetFirstTwo = getFirstTwoWords(row[0]);
+    return sheetFirstTwo === roleFirstTwo;
+});
+
+if (!projectRow) {
+    return interaction.reply({
+        content: `❌ لم أجد المشروع "${role.name}" في الشيت!`,
+        ephemeral: true
+    });
+}
+
+// ====== استخراج رابط Drive من عمود L ======
+const driveLink = projectRow[driveColumnIndex];
+
+console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
+
+if (!driveLink) {
+    return interaction.reply({
+        content: '❌ لم أجد رابط Drive للمشروع في العمود L!',
+        ephemeral: true
+    });
+}
+
 
             // البحث عن المشروع باستخدام أول كلمتين
             const roleFirstTwo = getFirstTwoWords(role.name);
