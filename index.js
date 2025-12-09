@@ -71,10 +71,10 @@ async function checkSheetAndSendMessages() {
 function normalizeName(name) {
     return name
         .toLowerCase()
-        .replace(/[^\w\s]/g, "") // حذف علامات الترقيم والكوما والأبوسروف
+        .replace(/[^\w]+/g, " ") // ← استبدال أي علامة ترقيم أو فواصل بمسافة
+        .replace(/\s+/g, " ")    // ← توحيد المسافات
         .trim();
 }
-
 // أخذ أول كلمتين فقط
 function firstTwoWords(name) {
     return normalizeName(name).split(/\s+/).slice(0, 2).join(" ");
