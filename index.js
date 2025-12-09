@@ -98,36 +98,36 @@ async function checkSheetAndSendMessages() {
 
             // Initialize tracking for this channel if not exists
             if (!sentMessages[channelKey]) {
-                sentMessages[channelKey] = { 5: false, 7: false };
+                sentMessages[channelKey] = { 3: false, 5: false };
             }
 
-            // Send message for number 5 (only once)
-            if (number === 5 && !sentMessages[channelKey][5]) {
+            // Send message for number 3 (only once)
+            if (number === 3 && !sentMessages[channelKey][3]) {
                 const users = [
                     "1269706276288467057",
                     "1269706276288467058",
                     "1270089817517981859"
                 ];
                 await channel.send(`${users.map(u => `<@&${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
+                sentMessages[channelKey][3] = true;
+            }
+
+            // Send message for number 5 (only once)
+            if (number === 5 && !sentMessages[channelKey][5]) {
+                const user = "1269706276309569581";
+                await channel.send(`<@&${user}> Come here these guys are late`);
                 sentMessages[channelKey][5] = true;
             }
 
-            // Send message for number 7 (only once)
-            if (number === 7 && !sentMessages[channelKey][6]) {
-                const user = "1269706276309569581";
-                await channel.send(`<@&${user}> Come here these guys are late`);
-                sentMessages[channelKey][6] = true;
-            }
-
-            // Reset tracking if number changes (goes below 5 or above 7)
-            if (number < 5) {
+            // Reset tracking if number changes (goes below 3 or above 5)
+            if (number < 3) {
+                sentMessages[channelKey][3] = false;
                 sentMessages[channelKey][5] = false;
-                sentMessages[channelKey][6] = false;
-            } else if (number > 7) {
-                sentMessages[channelKey][6] = false;
-            } else if (number === 6) {
-                // Between 5 and 7, keep 5 as sent but reset 7
-                sentMessages[channelKey][6] = false;
+            } else if (number > 5) {
+                sentMessages[channelKey][5] = false;
+            } else if (number === 4) {
+                // Between 3 and 5, keep 3 as sent but reset 5
+                sentMessages[channelKey][5] = false;
             }
         }
     } catch (error) {
@@ -155,11 +155,11 @@ app.post("/update", async (req, res) => {
         return res.status(404).send("Channel not found");
     }
 
-    if (number == 5) {
-        await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
+    if (number == 3) {
+        await channel.send("🔔 الرقم وصل 3 — الرسالة رقم 1");
     }
-    if (number == 7) {
-        await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
+    if (number == 5) {
+        await channel.send("🚨 الرقم وصل 5 — الرسالة رقم 2");
     }
 
     res.send("OK");
