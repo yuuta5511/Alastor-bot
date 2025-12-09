@@ -35,7 +35,7 @@ const sheetsClient = await auth.getClient();
 const sheets = google.sheets({ version: "v4", auth: sheetsClient });
 
 const spreadsheetId = process.env.SHEET_ID;
-const sheetName = process.env.SHEET_NAME || "Sheet1"; // Default to Sheet1 if not specified
+const sheetName = process.env.SHEET_NAME || "Sheet6"; // Default to Sheet1 if not specified
 
 // ====== TRACK SENT MESSAGES ======
 // Store which messages have been sent for each channel
