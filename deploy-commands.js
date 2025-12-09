@@ -1,50 +1,73 @@
-const { REST, Routes } = require('discord.js');
-const fs = require('node:fs');
-const path = require('node:path');
+import { REST, Routes, SlashCommandBuilder } from 'discord.js';
 
-// معلومات البوت
-const clientId = 'YOUR_CLIENT_ID'; // ضع Client ID هنا
-const guildId = 'YOUR_GUILD_ID'; // ضع Server ID هنا
-const token = 'YOUR_BOT_TOKEN'; // ضع التوكن هنا
+// ====== Configuration ======
+const CLIENT_ID = process.env.CLIENT_ID || 'YOUR_CLIENT_ID'; // Bot Client ID
+const GUILD_ID = process.env.GUILD_ID || 'YOUR_GUILD_ID';   // Server ID
+const TOKEN = process.env.BOT_TOKEN?.trim();
 
-const commands = [];
-
-// قراءة ملفات الأوامر
-const commandsPath = path.join(__dirname, 'commands', 'slash');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    if ('data' in command && 'execute' in command) {
-        commands.push(command.data.toJSON());
-        console.log(`✅ Loaded command: ${command.data.name}`);
-    } else {
-        console.log(`⚠️  Warning: ${file} is missing required "data" or "execute" property.`);
-    }
+if (!TOKEN) {
+    console.error('❌ BOT_TOKEN مش موجود!');
+    process.exit(1);
 }
 
-// تسجيل الأوامر
-const rest = new REST().setToken(token);
+// ====== تعريف الأوامر ======
+const commands = [
+    new SlashCommandBuilder()
+        .setName('request')
+        .setDescription('Request a role for a project')
+        .addStringOption(option =>
+            option.setName('role')
+                .setDescription('The role type you need')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Translator (TL)', value: 'TL' },
+                    { name: 'Editor (ED)', value: 'ED' },
+                    { name: 'Proofreader (PR)', value: 'PR' }
+                ))
+        .addRoleOption(option =>
+            option.setName('for')
+                .setDescription('Select the project role')
+                .setRequired(true))
+        .addIntegerOption(option =>
+            option.setName('from')
+                .setDescription('Starting chapter number')
+                .setRequired(true)
+                .setMinValue(1))
+        .addIntegerOption(option =>
+            option.setName('number_of_chapters')
+                .setDescription('Number of chapters needed (optional)')
+                .setRequired(false)
+                .setMinValue(1))
+].map(command => command.toJSON());
+
+// ====== تسجيل الأوامر ======
+const rest = new REST().setToken(TOKEN);
 
 (async () => {
     try {
         console.log(`🔄 Started refreshing ${commands.length} application (/) commands.`);
 
-        // لتسجيل الأوامر في سيرفر محدد (أسرع للتطوير)
-        const data = await rest.put(
-            Routes.applicationGuildCommands(clientId, guildId),
-            { body: commands },
-        );
+        if (GUILD_ID && GUILD_ID !== 'YOUR_GUILD_ID') {
+            // تسجيل في سيرفر محدد (أسرع - للتطوير)
+            const data = await rest.put(
+                Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+                { body: commands },
+            );
+            console.log(`✅ Successfully registered ${data.length} guild commands in server ${GUILD_ID}`);
+        } else {
+            // تسجيل عالمي (يأخذ وقت - للإنتاج)
+            const data = await rest.put(
+                Routes.applicationCommands(CLIENT_ID),
+                { body: commands },
+            );
+            console.log(`✅ Successfully registered ${data.length} global commands`);
+            console.log('⏰ Note: Global commands may take up to 1 hour to appear');
+        }
 
-        // لتسجيل الأوامر عالمياً (يأخذ وقت حتى ساعة)
-        // const data = await rest.put(
-        //     Routes.applicationCommands(clientId),
-        //     { body: commands },
-        // );
-
-        console.log(`✅ Successfully reloaded ${data.length} application (/) commands.`);
     } catch (error) {
         console.error('❌ Error deploying commands:', error);
+        if (error.code === 50001) {
+            console.error('⚠️  Missing Access - Make sure the bot has applications.commands scope');
+        }
     }
 })();
