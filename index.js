@@ -55,9 +55,7 @@ function getFirstTwoWords(text) {
         .split(/\s+/)
         .filter(w => w.length > 0);
     
-    const result = words.slice(0, 2).join(' ');
-    console.log(`📝 First two words from "${text}": "${result}"`);
-    return result;
+    return words.slice(0, 2).join(' ');
 }
 
 // ====== FUNCTION TO FIND MATCHING CHANNEL ======
@@ -65,22 +63,11 @@ function findMatchingChannel(sheetChannelName) {
     const firstTwoWords = getFirstTwoWords(sheetChannelName);
     if (!firstTwoWords) return null;
     
-    console.log(`🔍 Looking for channel matching: "${firstTwoWords}"`);
-    console.log(`📋 Available channels: ${client.channels.cache.map(c => c.name).join(', ')}`);
-    
     // Find channel where its name starts with the first two words
     const found = client.channels.cache.find(c => {
         const channelFirstTwo = getFirstTwoWords(c.name.replace(/-/g, ' '));
-        const matches = channelFirstTwo === firstTwoWords;
-        console.log(`  Checking "${c.name}" -> "${channelFirstTwo}" -> ${matches ? '✅ MATCH' : '❌'}`);
-        return matches;
+        return channelFirstTwo === firstTwoWords;
     });
-    
-    if (found) {
-        console.log(`✅ Found matching channel: ${found.name}`);
-    } else {
-        console.log(`❌ No matching channel found for "${sheetChannelName}"`);
-    }
     
     return found;
 }
@@ -94,20 +81,14 @@ async function checkSheetAndSendMessages() {
         });
 
         const rows = res.data.values || [];
-        console.log(`📊 Found ${rows.length} rows in sheet`);
 
         for (const row of rows) {
             const channelNameFromSheet = row[0]; // العمود الأول فيه اسم الروم
             const number = Number(row[5]); // العمود السادس فيه الرقم
             const status = row[7]; // العمود الثامن فيه الحالة
 
-            console.log(`\n📝 Processing row: Channel="${channelNameFromSheet}", Number=${number}, Status="${status}"`);
-
             // Skip if status is not "Ongoing"
-            if (status !== "Ongoing") {
-                console.log(`⏭️ Skipping - Status is not "Ongoing"`);
-                continue;
-            }
+            if (status !== "Ongoing") continue;
 
             // Find matching channel by first two words
             const channel = findMatchingChannel(channelNameFromSheet);
@@ -129,7 +110,6 @@ async function checkSheetAndSendMessages() {
                 ];
                 await channel.send(`${users.map(u => `<@&${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
                 sentMessages[channelKey][5] = true;
-                console.log(`✅ Sent message for ${channelKey} at number 5`);
             }
 
             // Send message for number 7 (only once)
@@ -137,7 +117,6 @@ async function checkSheetAndSendMessages() {
                 const user = "1269706276309569581";
                 await channel.send(`<@&${user}> Come here these guys are late`);
                 sentMessages[channelKey][6] = true;
-                console.log(`✅ Sent message for ${channelKey} at number 6`);
             }
 
             // Reset tracking if number changes (goes below 5 or above 7)
@@ -159,7 +138,6 @@ async function checkSheetAndSendMessages() {
 // ====== WAIT FOR BOT TO BE READY ======
 client.once('ready', () => {
     console.log('✅ Main Discord bot is ready!');
-    console.log('🔄 Starting sheet monitoring...');
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
 });
