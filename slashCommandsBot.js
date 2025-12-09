@@ -232,7 +232,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             // قراءة الشيت
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
-                range: `${sheetName}`,
+                range: `${sheetName}!A:AL`,
             });
 
             const rows = response.data.values;
@@ -256,7 +256,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             }
 
             // جلب رابط Drive
-            const driveLink = projectRow[37];
+            const driveLink = projectRow[11];
             console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
             if (!driveLink) {
                 return interaction.reply({ 
