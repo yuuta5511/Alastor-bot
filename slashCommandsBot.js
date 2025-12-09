@@ -139,9 +139,9 @@ const assignCommand = {
             option.setName('user')
                 .setDescription('The user to assign')
                 .setRequired(true))
-        .addStringOption(option =>
-            option.setName('project')
-                .setDescription('Type the project role name')
+        .addRoleOption(option =>
+            option.setName('to')
+                .setDescription('Select the project role')
                 .setRequired(true))
         .addIntegerOption(option =>
             option.setName('from')
@@ -151,25 +151,23 @@ const assignCommand = {
 
     async execute(interaction) {
         console.log(`/assign command triggered by ${interaction.user.tag}`);
-        console.log('All options:', interaction.options.data);
         try {
             await interaction.deferReply({ ephemeral: true });
 
             const targetUser = interaction.options.getUser('user');
-            const projectRoleName = interaction.options.getString('project');
+            const projectRole = interaction.options.getRole('to');
             const fromChapter = interaction.options.getInteger('from');
 
             console.log('Target User:', targetUser?.tag);
-            console.log('Project Role Name:', projectRoleName);
-            console.log('Project Role Name Type:', typeof projectRoleName);
+            console.log('Project Role:', projectRole?.name);
             console.log('From Chapter:', fromChapter);
 
             if (!targetUser) {
                 return interaction.editReply({ content: '❌ User not found!' });
             }
 
-            if (!projectRoleName || projectRoleName.trim() === '') {
-                return interaction.editReply({ content: '❌ Project name not provided!' });
+            if (!projectRole) {
+                return interaction.editReply({ content: '❌ Role not found!' });
             }
 
             const guild = interaction.guild;
@@ -177,15 +175,6 @@ const assignCommand = {
             
             if (!member) {
                 return interaction.editReply({ content: '❌ User is not a member of this server!' });
-            }
-
-            // Find the role by name
-            const projectRole = guild.roles.cache.find(r => 
-                r.name.toLowerCase().includes(projectRoleName.toLowerCase())
-            );
-
-            if (!projectRole) {
-                return interaction.editReply({ content: `❌ Role "${projectRoleName}" not found in server!` });
             }
             
             // Add role to user
