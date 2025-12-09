@@ -256,8 +256,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             }
 
             // جلب رابط Drive
-            const driveLink = projectRow[9];
-            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
+            const driveLink = projectRow[37];
             if (!driveLink) {
                 return interaction.reply({ 
                     content: '❌ لم أجد رابط Drive للمشروع!', 
@@ -266,47 +265,15 @@ slashBot.on('interactionCreate', async (interaction) => {
             }
 
             // استخراج File ID
-          // استخراج File ID من الرابط باستخدام regex
-let fileIdMatch = driveLink.match(/[-\w]{25,}/);
+            const fileIdMatch = driveLink.match(/[-\w]{25,}/);
+            if (!fileIdMatch) {
+                return interaction.reply({ 
+                    content: '❌ رابط Drive غير صالح!', 
+                    ephemeral: true 
+                });
+            }
 
-if (!fileIdMatch) {
-    return interaction.reply({
-        content: '❌ رابط Drive غير صالح! (لا يحتوي على File ID)',
-        ephemeral: true
-    });
-}
-
-let fileId = fileIdMatch[0];
-
-// 🔥 التعامل مع Google Drive Shortcuts
-try {
-    const fileMetadata = await drive.files.get({
-        fileId: fileId,
-        fields: "id, name, mimeType, shortcutDetails"
-    });
-
-    // لو الملف Shortcut → استخدم الـ targetId
-    if (fileMetadata.data.mimeType === "application/vnd.google-apps.shortcut") {
-        const targetId = fileMetadata.data.shortcutDetails?.targetId;
-
-        if (!targetId) {
-            return interaction.reply({
-                content: "❌ لم أستطع استخراج الملف الحقيقي من الشورت كت!",
-                ephemeral: true
-            });
-        }
-
-        console.log("🔄 Shortcut detected → Real ID:", targetId);
-        fileId = targetId;
-    }
-} catch (error) {
-    console.error("Error resolving shortcut:", error);
-    return interaction.reply({
-        content: "❌ حدث خطأ أثناء معالجة رابط الشورت كت!",
-        ephemeral: true
-    });
-}
-
+            const fileId = fileIdMatch[0];
 
             // إعطاء الصلاحية
             try {
