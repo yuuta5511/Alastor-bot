@@ -2,7 +2,7 @@ import { Client, GatewayIntentBits, Collection, SlashCommandBuilder, EmbedBuilde
 import { google } from "googleapis";
 import { registerCommands } from './registerCommands.js';
 
-// ====== DISCORD BOT للـ Slash Commands ======
+// ====== DISCORD BOT for Slash Commands ======
 const slashBot = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -13,6 +13,16 @@ const slashBot = new Client({
 });
 
 slashBot.slashCommands = new Collection();
+
+// ====== Role Mentions Mapping ======
+// ====== Role Mentions Mapping ======
+const roleMentions = {
+    'ED': '<@&1269706276288467057>',
+    'PR': '<@&1269706276288467058>',
+    'KTL': '<@&1270089817517981859>',
+    'CTL': '<@&1269706276288467059>',
+    'JTL': '<@&1288004879020724276>',
+};
 
 // ====== FUNCTION TO EXTRACT FIRST TWO WORDS ======
 function getFirstTwoWords(text) {
@@ -41,7 +51,7 @@ function findMatchingChannel(roleName) {
     return found;
 }
 
-// ====== تعريف الـ /request Command ======
+// ====== /request Command ======
 const requestCommand = {
     data: new SlashCommandBuilder()
         .setName('request')
@@ -51,10 +61,13 @@ const requestCommand = {
                 .setDescription('The role type you need')
                 .setRequired(true)
                 .addChoices(
-                    { name: 'Translator (TL)', value: 'TL' },
                     { name: 'Editor (ED)', value: 'ED' },
-                    { name: 'Proofreader (PR)', value: 'PR' }
+                    { name: 'Proofreader (PR)', value: 'PR' },
+                    { name: 'Translator KTL', value: 'KTL' },
+                    { name: 'Translator JTL', value: 'JTL' },
+                    { name: 'Translator CTL', value: 'CTL' },
                 ))
+
         .addRoleOption(option =>
             option.setName('for')
                 .setDescription('Select the project role')
@@ -79,41 +92,41 @@ const requestCommand = {
 
             if (!projectRole) {
                 return interaction.reply({ 
-                    content: '❌ الرول المحدد غير موجود!', 
+                    content: '❌ Selected role not found!', 
                     ephemeral: true 
                 });
             }
 
-            // البحث عن روم الإعلانات بالاسم الكامل
+            // Find the claim work channel
             const claimWorkChannel = interaction.guild.channels.cache.find(
                 ch => ch.name === '🏹〢claim・work' && ch.isTextBased()
             );
 
             if (!claimWorkChannel) {
                 return interaction.reply({ 
-                    content: '❌ لم أجد روم 🏹〢claim・work!', 
+                    content: '❌ Claim・work channel not found!', 
                     ephemeral: true 
                 });
             }
 
             const embed = new EmbedBuilder()
                 .setColor('#00FF00')
-                .setTitle(`📢 ${roleType} مطلوب!`)
-                .setDescription(`**المشروع:** ${projectRole.name}\n**المطلوب:** ${roleType}`)
+                .setTitle(`📢 ${roleType} Needed!`)
+                .setDescription(`**Project:** ${projectRole.name}\n**Role Needed:** ${roleMentions[roleType] || roleType}`)
                 .addFields(
-                    { name: '👤 طالب الطلب', value: `${interaction.user}`, inline: true }
+                    { name: '👤 Requested By', value: `${interaction.user}`, inline: true }
                 )
                 .setTimestamp();
 
             if (numberOfChapters) {
                 embed.addFields(
-                    { name: '📚 عدد الشابترات', value: `${numberOfChapters}`, inline: true }
+                    { name: '📚 Number of Chapters', value: `${numberOfChapters}`, inline: true }
                 );
             }
 
             const button = new ButtonBuilder()
                 .setCustomId(`accept_request_${interaction.user.id}_${projectRole.id}_${fromChapter}_${roleType}`)
-                .setLabel('قبول المهمة ✅')
+                .setLabel('Accept Task ✅')
                 .setStyle(ButtonStyle.Success);
 
             const row = new ActionRowBuilder().addComponents(button);
@@ -124,13 +137,13 @@ const requestCommand = {
             });
 
             await interaction.reply({
-                content: `✅ تم إرسال الطلب بنجاح إلى ${claimWorkChannel}!`,
+                content: `✅ Request sent successfully to ${claimWorkChannel}!`,
                 ephemeral: true
             });
 
         } catch (error) {
             console.error('Error in /request command:', error);
-            const errorMessage = { content: '❌ حدث خطأ أثناء تنفيذ الأمر!', ephemeral: true };
+            const errorMessage = { content: '❌ An error occurred while executing the command!', ephemeral: true };
             
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(errorMessage);
@@ -143,9 +156,8 @@ const requestCommand = {
 
 slashBot.slashCommands.set(requestCommand.data.name, requestCommand);
 
-// ====== معالجة الـ Interactions ======
+// ====== Handle Interactions ======
 slashBot.on('interactionCreate', async (interaction) => {
-    // معالجة Slash Commands
     if (interaction.isChatInputCommand()) {
         const command = slashBot.slashCommands.get(interaction.commandName);
         if (!command) return;
@@ -154,7 +166,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             await command.execute(interaction);
         } catch (error) {
             console.error('Command execution error:', error);
-            const errorMessage = { content: '❌ حدث خطأ أثناء تنفيذ الأمر!', ephemeral: true };
+            const errorMessage = { content: '❌ An error occurred while executing the command!', ephemeral: true };
             
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(errorMessage);
@@ -164,7 +176,6 @@ slashBot.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // معالجة Buttons
     if (interaction.isButton() && interaction.customId.startsWith('accept_request_')) {
         try {
             const parts = interaction.customId.split('_');
@@ -176,36 +187,27 @@ slashBot.on('interactionCreate', async (interaction) => {
             const acceptingUser = interaction.user;
             const guild = interaction.guild;
 
-            // إعطاء الرول
             const role = guild.roles.cache.get(roleId);
             if (!role) {
-                return interaction.reply({ content: '❌ الرول غير موجود!', ephemeral: true });
+                return interaction.reply({ content: '❌ Role not found!', ephemeral: true });
             }
 
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            // البحث عن روم الإيميلات بالاسم الكامل
             const emailsChannel = guild.channels.cache.find(
                 ch => ch.name === '📝〢emails' && ch.isTextBased()
             );
 
             if (!emailsChannel) {
-                return interaction.reply({ 
-                    content: '❌ لم أجد روم 📝〢emails!', 
-                    ephemeral: true 
-                });
+                return interaction.reply({ content: '❌ Emails channel not found!', ephemeral: true });
             }
 
-            // جلب آخر رسالة من المستخدم
             const messages = await emailsChannel.messages.fetch({ limit: 100 });
             const userMessages = messages.filter(msg => msg.author.id === acceptingUser.id);
             
             if (userMessages.size === 0) {
-                return interaction.reply({ 
-                    content: '❌ لم أجد أي إيميل سابق لك في روم emails!', 
-                    ephemeral: true 
-                });
+                return interaction.reply({ content: '❌ No previous email found in emails channel!', ephemeral: true });
             }
 
             const lastUserMessage = userMessages.first();
@@ -213,7 +215,6 @@ slashBot.on('interactionCreate', async (interaction) => {
 
             // ====== Google API Setup ======
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
                 scopes: [
@@ -229,78 +230,53 @@ slashBot.on('interactionCreate', async (interaction) => {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = process.env.SHEET_NAME || 'PROGRESS';
 
-     // ====== قراءة الشيت ======
-const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A:ZZ`,
-});
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: `${sheetName}!A:ZZ`,
+            });
 
-const rows = response.data.values;
-if (!rows || rows.length === 0) {
-    return interaction.reply({
-        content: '❌ الشيت فارغ!',
-        ephemeral: true
-    });
-}
+            const rows = response.data.values;
+            if (!rows || rows.length === 0) {
+                return interaction.reply({ content: '❌ Spreadsheet is empty!', ephemeral: true });
+            }
 
-// ====== جلب رأس الأعمدة ======
-const header = rows[0];
+            const header = rows[0];
+            const driveColumnIndex = header.findIndex(col =>
+                col && typeof col === "string" && col.trim().toLowerCase() === "v221"
+            );
 
-// ====== البحث عن العمود الذي عنوانه V221 ======
-const driveColumnIndex = header.findIndex(col =>
-    col &&
-    typeof col === "string" &&
-    col.trim().toLowerCase() === "v221"
-);
+            console.log("📌 Drive Column Index:", driveColumnIndex);
 
-console.log("📌 Drive Column Index:", driveColumnIndex);
+            if (driveColumnIndex === -1) {
+                return interaction.reply({ content: '❌ V221 column not found!', ephemeral: true });
+            }
 
-if (driveColumnIndex === -1) {
-    return interaction.reply({
-        content: '❌ لم أجد عمود V221 في الصف الأول!',
-        ephemeral: true
-    });
-}
+            const roleFirstTwo = getFirstTwoWords(role.name);
+            const projectRow = rows.find(row => {
+                if (!row[0]) return false;
+                const sheetFirstTwo = getFirstTwoWords(row[0]);
+                return sheetFirstTwo === roleFirstTwo;
+            });
 
-// ====== البحث عن صف المشروع ======
-const roleFirstTwo = getFirstTwoWords(role.name);
+            if (!projectRow) {
+                return interaction.reply({ content: `❌ Project "${role.name}" not found in spreadsheet!`, ephemeral: true });
+            }
 
-const projectRow = rows.find(row => {
-    if (!row[0]) return false;
-    const sheetFirstTwo = getFirstTwoWords(row[0]);
-    return sheetFirstTwo === roleFirstTwo;
-});
+            const driveLink = projectRow[driveColumnIndex];
 
-if (!projectRow) {
-    return interaction.reply({
-        content: `❌ لم أجد المشروع "${role.name}" في الشيت!`,
-        ephemeral: true
-    });
-}
+            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
 
-// ====== استخراج الرابط من عمود V221 ======
-const driveLink = projectRow[driveColumnIndex];
+            if (!driveLink) {
+                return interaction.reply({ content: `❌ Found project row but V221 is empty!`, ephemeral: true });
+            }
 
-console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
-
-if (!driveLink) {
-    return interaction.reply({
-        content: `❌ لقيت صف المشروع، لكن خانة V221 فيه فاضية!`,
-        ephemeral: true
-    });
-}
-            // استخراج File ID
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
             if (!fileIdMatch) {
-                return interaction.reply({ 
-                    content: '❌ رابط Drive غير صالح!', 
-                    ephemeral: true 
-                });
+                return interaction.reply({ content: '❌ Invalid Drive link!', ephemeral: true });
             }
 
             const fileId = fileIdMatch[0];
 
-            // إعطاء الصلاحية
             try {
                 await drive.permissions.create({
                     fileId: fileId,
@@ -313,25 +289,19 @@ if (!driveLink) {
                 });
             } catch (driveError) {
                 console.error('Drive permission error:', driveError);
-                return interaction.reply({ 
-                    content: '❌ حدث خطأ أثناء إعطاء صلاحية Drive!', 
-                    ephemeral: true 
-                });
+                return interaction.reply({ content: '❌ Error giving Drive permission!', ephemeral: true });
             }
 
-            // البحث عن روم المشروع باستخدام نفس طريقة أول كلمتين
             const targetChannel = findMatchingChannel(role.name);
-
             if (targetChannel) {
                 await targetChannel.send(
-                    `${acceptingUser} start from ch ${fromChapter}, I already gave you access ✅`
+                    `${acceptingUser} start from ch ${fromChapter}, access granted ✅`
                 );
             }
 
-            // تعطيل الزر
             const disabledButton = new ButtonBuilder()
                 .setCustomId('disabled_button')
-                .setLabel('تم قبول المهمة ✅')
+                .setLabel('Task Accepted ✅')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(true);
 
@@ -340,24 +310,18 @@ if (!driveLink) {
             const originalEmbed = interaction.message.embeds[0];
             const updatedEmbed = EmbedBuilder.from(originalEmbed)
                 .setColor('#808080')
-                .addFields({ name: '✅ تم القبول بواسطة', value: `${acceptingUser}`, inline: true });
+                .addFields({ name: '✅ Accepted By', value: `${acceptingUser}`, inline: true });
 
             await interaction.message.edit({
                 embeds: [updatedEmbed],
                 components: [newRow]
             });
 
-            await interaction.reply({
-                content: `✅ تم! حصلت على رول ${role.name} وتم إعطائك صلاحية Drive`,
-                ephemeral: true
-            });
+            await interaction.reply({ content: `✅ Done! You received role ${role.name} and Drive access.`, ephemeral: true });
 
         } catch (error) {
             console.error('Error handling button:', error);
-            await interaction.reply({
-                content: '❌ حدث خطأ أثناء معالجة الطلب!',
-                ephemeral: true
-            });
+            await interaction.reply({ content: '❌ Error handling the request!', ephemeral: true });
         }
     }
 });
@@ -365,8 +329,6 @@ if (!driveLink) {
 // ====== Bot Ready ======
 slashBot.once('ready', async () => {
     console.log(`✅ Slash Commands Bot is ready as ${slashBot.user.tag}`);
-    
-    // تسجيل الـ Commands تلقائياً
     await registerCommands();
 });
 
