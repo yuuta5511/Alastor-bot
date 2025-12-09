@@ -14,6 +14,33 @@ const slashBot = new Client({
 
 slashBot.slashCommands = new Collection();
 
+// ====== FUNCTION TO EXTRACT FIRST TWO WORDS ======
+function getFirstTwoWords(text) {
+    if (!text) return "";
+    
+    const words = text
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/[^\x00-\x7F]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 0);
+    
+    return words.slice(0, 2).join(' ');
+}
+
+// ====== FUNCTION TO FIND MATCHING CHANNEL ======
+function findMatchingChannel(roleName) {
+    const firstTwoWords = getFirstTwoWords(roleName);
+    if (!firstTwoWords) return null;
+    
+    const found = slashBot.channels.cache.find(c => {
+        const channelFirstTwo = getFirstTwoWords(c.name.replace(/-/g, ' '));
+        return channelFirstTwo === firstTwoWords && c.isTextBased();
+    });
+    
+    return found;
+}
+
 // ====== تعريف الـ /request Command ======
 const requestCommand = {
     data: new SlashCommandBuilder()
@@ -57,14 +84,14 @@ const requestCommand = {
                 });
             }
 
-            // البحث عن الروم المخصص للرول
-            const targetChannel = interaction.guild.channels.cache.find(
-                ch => ch.name.toLowerCase() === projectRole.name.toLowerCase() && ch.isTextBased()
+            // البحث عن روم claim-work
+            const claimWorkChannel = interaction.guild.channels.cache.find(
+                ch => getFirstTwoWords(ch.name.replace(/-/g, ' ')) === 'claim work' && ch.isTextBased()
             );
 
-            if (!targetChannel) {
+            if (!claimWorkChannel) {
                 return interaction.reply({ 
-                    content: `❌ لم أجد روم بإسم: ${projectRole.name}`, 
+                    content: '❌ لم أجد روم claim-work!', 
                     ephemeral: true 
                 });
             }
@@ -91,13 +118,13 @@ const requestCommand = {
 
             const row = new ActionRowBuilder().addComponents(button);
 
-            await targetChannel.send({
+            await claimWorkChannel.send({
                 embeds: [embed],
                 components: [row]
             });
 
             await interaction.reply({
-                content: `✅ تم إرسال الطلب بنجاح إلى ${targetChannel}!`,
+                content: `✅ تم إرسال الطلب بنجاح إلى ${claimWorkChannel}!`,
                 ephemeral: true
             });
 
@@ -158,14 +185,14 @@ slashBot.on('interactionCreate', async (interaction) => {
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            // البحث عن روم emails
+            // البحث عن روم emails باستخدام نفس الطريقة
             const emailsChannel = guild.channels.cache.find(
-                ch => ch.name.toLowerCase() === 'emails' && ch.isTextBased()
+                ch => getFirstTwoWords(ch.name.replace(/-/g, ' ')) === 'emails' && ch.isTextBased()
             );
 
             if (!emailsChannel) {
                 return interaction.reply({ 
-                    content: '❌ لم أجد روم #emails!', 
+                    content: '❌ لم أجد روم emails!', 
                     ephemeral: true 
                 });
             }
@@ -176,7 +203,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             
             if (userMessages.size === 0) {
                 return interaction.reply({ 
-                    content: '❌ لم أجد أي إيميل سابق لك في #emails!', 
+                    content: '❌ لم أجد أي إيميل سابق لك في روم emails!', 
                     ephemeral: true 
                 });
             }
@@ -213,10 +240,13 @@ slashBot.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: '❌ الشيت فارغ!', ephemeral: true });
             }
 
-            // البحث عن المشروع
-            const projectRow = rows.find(row => 
-                row[0] && row[0].toLowerCase().includes(role.name.toLowerCase())
-            );
+            // البحث عن المشروع باستخدام أول كلمتين
+            const roleFirstTwo = getFirstTwoWords(role.name);
+            const projectRow = rows.find(row => {
+                if (!row[0]) return false;
+                const sheetFirstTwo = getFirstTwoWords(row[0]);
+                return sheetFirstTwo === roleFirstTwo;
+            });
 
             if (!projectRow) {
                 return interaction.reply({ 
@@ -264,10 +294,8 @@ slashBot.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // إرسال رسالة في الروم
-            const targetChannel = guild.channels.cache.find(
-                ch => ch.name.toLowerCase() === role.name.toLowerCase() && ch.isTextBased()
-            );
+            // البحث عن روم المشروع باستخدام نفس طريقة أول كلمتين
+            const targetChannel = findMatchingChannel(role.name);
 
             if (targetChannel) {
                 await targetChannel.send(
