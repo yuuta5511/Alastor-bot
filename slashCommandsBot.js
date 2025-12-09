@@ -76,12 +76,11 @@ const requestCommand = {
                 .setDescription('Number of chapters needed (optional)')
                 .setRequired(false)
                 .setMinValue(1)),
-    
+
     async execute(interaction) {
-        console.log('[Request] Command triggered');
+        console.log(`/request command triggered by ${interaction.user.tag}`);
         try {
             await interaction.deferReply({ ephemeral: true });
-            console.log('[Request] deferReply done');
 
             const roleType = interaction.options.getString('role');
             const projectRole = interaction.options.getRole('for');
@@ -89,7 +88,7 @@ const requestCommand = {
             const numberOfChapters = interaction.options.getInteger('number_of_chapters');
 
             if (!projectRole) {
-                return await interaction.editReply({ content: '❌ Selected role not found!' });
+                return interaction.editReply({ content: '❌ Selected role not found!' });
             }
 
             const claimWorkChannel = interaction.guild.channels.cache.find(
@@ -97,7 +96,7 @@ const requestCommand = {
             );
 
             if (!claimWorkChannel) {
-                return await interaction.editReply({ content: '❌ Claim・work channel not found!' });
+                return interaction.editReply({ content: '❌ Claim・work channel not found!' });
             }
 
             const embed = new EmbedBuilder()
@@ -119,65 +118,41 @@ const requestCommand = {
             const row = new ActionRowBuilder().addComponents(button);
 
             await claimWorkChannel.send({ embeds: [embed], components: [row] });
-            console.log('[Request] Embed sent to claimWorkChannel');
 
             await interaction.editReply({ content: `✅ Request sent successfully to ${claimWorkChannel}!` });
-            console.log('[Request] Command completed successfully');
+
         } catch (error) {
-            console.error('[Request] Error:', error);
-            if (interaction.deferred) {
-                await interaction.editReply('❌ An error occurred while executing the command!');
-            } else {
-                await interaction.reply({ content: '❌ An error occurred while executing the command!', ephemeral: true });
-            }
+            console.error('Error in /request command:', error);
+            await interaction.editReply({ content: '❌ An error occurred while executing the command!' });
         }
     }
 };
 
 slashBot.slashCommands.set(requestCommand.data.name, requestCommand);
 
-// ====== /assign Command ======
-const assignCommand = {
-    data: new SlashCommandBuilder()
-        .setName('assign')
-        .setDescription('Assign a role and Drive access to a user (Admin only)')
-        .addUserOption(option => option.setName('user').setDescription('Select a user to assign').setRequired(true))
-        .addRoleOption(option => option.setName('to').setDescription('Select a role to assign (matching room name)').setRequired(true))
-        .addIntegerOption(option => option.setName('from').setDescription('Starting chapter number').setRequired(true).setMinValue(1)),
+// ====== Handle Interactions ======
+slashBot.on('interactionCreate', async (interaction) => {
+    if (interaction.isChatInputCommand()) {
+        const command = slashBot.slashCommands.get(interaction.commandName);
+        if (!command) return;
 
-    async execute(interaction) {
-        console.log('[Assign] Command triggered');
         try {
-            if (!interaction.member.permissions.has('Administrator')) {
-                return await interaction.reply({ content: '❌ You do not have permission to use this command!', ephemeral: true });
-            }
-
-            await interaction.deferReply({ ephemeral: true });
-            console.log('[Assign] deferReply done');
-
-            // باقي الكود هنا مثل ما عندك في النسخة القديمة
-            // استخدم interaction.editReply بعد انتهاء العملية
-            await interaction.editReply({ content: '✅ Assign command executed (implement full logic like previous version)' });
-            console.log('[Assign] Command completed successfully');
+            await command.execute(interaction);
         } catch (error) {
-            console.error('[Assign] Error:', error);
-            if (interaction.deferred) {
-                await interaction.editReply('❌ An error occurred while executing the command!');
+            console.error('Command execution error:', error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ An error occurred while executing the command!', ephemeral: true });
             } else {
                 await interaction.reply({ content: '❌ An error occurred while executing the command!', ephemeral: true });
             }
         }
     }
-};
 
-slashBot.slashCommands.set(assignCommand.data.name, assignCommand);
-
-// ====== Handle Buttons ======
-slashBot.on('interactionCreate', async (interaction) => {
     if (interaction.isButton() && interaction.customId.startsWith('accept_request_')) {
-        console.log('[Button] accept_request triggered');
-        await interaction.deferReply({ ephemeral: true });
+        console.log(`Button clicked: ${interaction.customId} by ${interaction.user.tag}`);
         try {
+            await interaction.deferReply({ ephemeral: true });
+
             const parts = interaction.customId.split('_');
             const requesterId = parts[2];
             const roleId = parts[3];
@@ -188,12 +163,72 @@ slashBot.on('interactionCreate', async (interaction) => {
             const guild = interaction.guild;
 
             const role = guild.roles.cache.get(roleId);
-            if (!role) return await interaction.editReply({ content: '❌ Role not found!' });
+            if (!role) {
+                return interaction.editReply({ content: '❌ Role not found!' });
+            }
 
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            // Google Sheets / Drive logic here (copy from previous working version)
+            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
+            if (!emailsChannel) {
+                return interaction.editReply({ content: '❌ Emails channel not found!' });
+            }
+
+            const messages = await emailsChannel.messages.fetch({ limit: 100 });
+            const userMessages = messages.filter(msg => msg.author.id === acceptingUser.id);
+            if (userMessages.size === 0) {
+                return interaction.editReply({ content: '❌ No previous email found in emails channel!' });
+            }
+
+            const lastUserMessage = userMessages.first();
+            const userEmail = lastUserMessage.content.trim();
+
+            // ====== Google API Setup ======
+            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+            const auth = new google.auth.GoogleAuth({
+                credentials: creds,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+            });
+
+            const authClient = await auth.getClient();
+            const sheets = google.sheets({ version: 'v4', auth: authClient });
+            const drive = google.drive({ version: 'v3', auth: authClient });
+
+            const spreadsheetId = process.env.SHEET_ID;
+            const sheetName = process.env.SHEET_NAME || 'PROGRESS';
+
+            const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${sheetName}!A:ZZ` });
+            const rows = response.data.values;
+            if (!rows || rows.length === 0) return interaction.editReply({ content: '❌ Spreadsheet is empty!' });
+
+            const header = rows[0];
+            const driveColumnIndex = header.findIndex(col => col && typeof col === "string" && col.trim().toLowerCase() === "v221");
+            console.log("📌 Drive Column Index:", driveColumnIndex);
+            if (driveColumnIndex === -1) return interaction.editReply({ content: '❌ V221 column not found!' });
+
+            const roleFirstTwo = getFirstTwoWords(role.name);
+            const projectRow = rows.find(row => row[0] && getFirstTwoWords(row[0]) === roleFirstTwo);
+            if (!projectRow) return interaction.editReply({ content: `❌ Project "${role.name}" not found in spreadsheet!` });
+
+            const driveLink = projectRow[driveColumnIndex];
+            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
+            if (!driveLink) return interaction.editReply({ content: `❌ Found project row but V221 is empty!` });
+
+            const fileIdMatch = driveLink.match(/[-\w]{25,}/);
+            if (!fileIdMatch) return interaction.editReply({ content: '❌ Invalid Drive link!' });
+            const fileId = fileIdMatch[0];
+
+            try {
+                await drive.permissions.create({
+                    fileId,
+                    requestBody: { role: 'writer', type: 'user', emailAddress: userEmail },
+                    sendNotificationEmail: false,
+                });
+            } catch (driveError) {
+                console.error('Drive permission error:', driveError);
+                return interaction.editReply({ content: '❌ Error giving Drive permission!' });
+            }
 
             const targetChannel = findMatchingChannel(role.name);
             if (targetChannel) {
@@ -213,15 +248,12 @@ slashBot.on('interactionCreate', async (interaction) => {
                 .addFields({ name: '✅ Accepted By', value: `${acceptingUser}`, inline: true });
 
             await interaction.message.edit({ embeds: [updatedEmbed], components: [newRow] });
+
             await interaction.editReply({ content: `✅ Done! You received role ${role.name} and Drive access.` });
-            console.log('[Button] Task accepted and updated successfully');
+
         } catch (error) {
-            console.error('[Button] Error:', error);
-            if (interaction.deferred) {
-                await interaction.editReply('❌ Error handling the request!');
-            } else {
-                await interaction.reply({ content: '❌ Error handling the request!', ephemeral: true });
-            }
+            console.error('Error handling button:', error);
+            await interaction.editReply({ content: '❌ Error handling the request!' });
         }
     }
 });
