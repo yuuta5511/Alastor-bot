@@ -229,42 +229,66 @@ slashBot.on('interactionCreate', async (interaction) => {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = process.env.SHEET_NAME || 'PROGRESS';
 
-            // قراءة الشيت
-            const response = await sheets.spreadsheets.values.get({
-                spreadsheetId,
-                range: `${sheetName}!A:J`,
-            });
+     // ====== قراءة الشيت ======
+const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A:ZZ`,
+});
 
-            const rows = response.data.values;
-            if (!rows || rows.length === 0) {
-                return interaction.reply({ content: '❌ الشيت فارغ!', ephemeral: true });
-            }
+const rows = response.data.values;
+if (!rows || rows.length === 0) {
+    return interaction.reply({
+        content: '❌ الشيت فارغ!',
+        ephemeral: true
+    });
+}
 
-            // البحث عن المشروع باستخدام أول كلمتين
-            const roleFirstTwo = getFirstTwoWords(role.name);
-            const projectRow = rows.find(row => {
-                if (!row[0]) return false;
-                const sheetFirstTwo = getFirstTwoWords(row[0]);
-                return sheetFirstTwo === roleFirstTwo;
-            });
+// ====== جلب رأس الأعمدة ======
+const header = rows[0];
 
-            if (!projectRow) {
-                return interaction.reply({ 
-                    content: `❌ لم أجد المشروع "${role.name}" في الشيت!`, 
-                    ephemeral: true 
-                });
-            }
+// ====== البحث عن العمود الذي عنوانه V221 ======
+const driveColumnIndex = header.findIndex(col =>
+    col &&
+    typeof col === "string" &&
+    col.trim().toLowerCase() === "v221"
+);
 
-            // جلب رابط Drive
-            const driveLink = projectRow[11];
-            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
-            if (!driveLink) {
-                return interaction.reply({ 
-                    content: '❌ لم أجد رابط Drive للمشروع!', 
-                    ephemeral: true 
-                });
-            }
+console.log("📌 Drive Column Index:", driveColumnIndex);
 
+if (driveColumnIndex === -1) {
+    return interaction.reply({
+        content: '❌ لم أجد عمود V221 في الصف الأول!',
+        ephemeral: true
+    });
+}
+
+// ====== البحث عن صف المشروع ======
+const roleFirstTwo = getFirstTwoWords(role.name);
+
+const projectRow = rows.find(row => {
+    if (!row[0]) return false;
+    const sheetFirstTwo = getFirstTwoWords(row[0]);
+    return sheetFirstTwo === roleFirstTwo;
+});
+
+if (!projectRow) {
+    return interaction.reply({
+        content: `❌ لم أجد المشروع "${role.name}" في الشيت!`,
+        ephemeral: true
+    });
+}
+
+// ====== استخراج الرابط من عمود V221 ======
+const driveLink = projectRow[driveColumnIndex];
+
+console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
+
+if (!driveLink) {
+    return interaction.reply({
+        content: `❌ لقيت صف المشروع، لكن خانة V221 فيه فاضية!`,
+        ephemeral: true
+    });
+}
             // استخراج File ID
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
             if (!fileIdMatch) {
