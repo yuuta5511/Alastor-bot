@@ -60,7 +60,7 @@ async function checkSheetAndSendMessages() {
                     "1269706276288467058",
                     "1270089817517981859"
                 ];
-                await channel.send(`${users.map(u => `<@${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
+                await channel.send(`${users.map(u => `<@${u}>`).join(" ")} Faster or I will call my supervisors on you ￣へ￣`);
             }
 
             if (number === 7) {
@@ -95,10 +95,10 @@ app.post("/update", async (req, res) => {
     }
 
     if (number == 5) {
-        await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
+        await channel.send(" الرقم وصل 5 — الرسالة رقم 1");
     }
     if (number == 7) {
-        await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
+        await channel.send(" الرقم وصل 7 — الرسالة رقم 2");
     }
 
     res.send("OK");
