@@ -151,6 +151,7 @@ const assignCommand = {
 
     async execute(interaction) {
         console.log(`/assign command triggered by ${interaction.user.tag}`);
+        console.log('All options:', interaction.options.data);
         try {
             await interaction.deferReply({ ephemeral: true });
 
@@ -160,13 +161,14 @@ const assignCommand = {
 
             console.log('Target User:', targetUser?.tag);
             console.log('Project Role Name:', projectRoleName);
+            console.log('Project Role Name Type:', typeof projectRoleName);
             console.log('From Chapter:', fromChapter);
 
             if (!targetUser) {
                 return interaction.editReply({ content: '❌ User not found!' });
             }
 
-            if (!projectRoleName) {
+            if (!projectRoleName || projectRoleName.trim() === '') {
                 return interaction.editReply({ content: '❌ Project name not provided!' });
             }
 
