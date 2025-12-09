@@ -35,7 +35,12 @@ const sheetsClient = await auth.getClient();
 const sheets = google.sheets({ version: "v4", auth: sheetsClient });
 
 const spreadsheetId = process.env.SHEET_ID;
-const sheetName = "Sheet6"; // اسم الصفحة الثانية
+const sheetName = process.env.SHEET_NAME || "Sheet1"; // Default to Sheet1 if not specified
+
+// ====== TRACK SENT MESSAGES ======
+// Store which messages have been sent for each channel
+// Format: { "channel-name": { 5: true, 7: false } }
+const sentMessages = {};
 
 // ====== FUNCTION TO CHECK NUMBERS ======
 async function checkSheetAndSendMessages() {
@@ -54,18 +59,40 @@ async function checkSheetAndSendMessages() {
             const channel = client.channels.cache.find(c => c.name === channelName);
             if (!channel) continue;
 
-            if (number === 5) {
+            // Initialize tracking for this channel if not exists
+            if (!sentMessages[channelName]) {
+                sentMessages[channelName] = { 5: false, 7: false };
+            }
+
+            // Send message for number 5 (only once)
+            if (number === 5 && !sentMessages[channelName][5]) {
                 const users = [
                     "1269706276288467057",
                     "1269706276288467058",
                     "1270089817517981859"
                 ];
                 await channel.send(`${users.map(u => `<@${u}>`).join(" ")} Faster or I will call my supervisors on you ￣へ￣`);
+                sentMessages[channelName][5] = true;
+                console.log(`✅ Sent message for ${channelName} at number 5`);
             }
 
-            if (number === 7) {
+            // Send message for number 7 (only once)
+            if (number === 7 && !sentMessages[channelName][7]) {
                 const user = "895989670142435348";
                 await channel.send(`<@${user}> Come here`);
+                sentMessages[channelName][7] = true;
+                console.log(`✅ Sent message for ${channelName} at number 7`);
+            }
+
+            // Reset tracking if number changes (goes below 5 or above 7)
+            if (number < 5) {
+                sentMessages[channelName][5] = false;
+                sentMessages[channelName][7] = false;
+            } else if (number > 7) {
+                sentMessages[channelName][7] = false;
+            } else if (number === 6) {
+                // Between 5 and 7, keep 5 as sent but reset 7
+                sentMessages[channelName][7] = false;
             }
         }
     } catch (error) {
@@ -95,10 +122,10 @@ app.post("/update", async (req, res) => {
     }
 
     if (number == 5) {
-        await channel.send(" الرقم وصل 5 — الرسالة رقم 1");
+        await channel.send("🔔 الرقم وصل 5 — الرسالة رقم 1");
     }
     if (number == 7) {
-        await channel.send(" الرقم وصل 7 — الرسالة رقم 2");
+        await channel.send("🚨 الرقم وصل 7 — الرسالة رقم 2");
     }
 
     res.send("OK");
