@@ -84,14 +84,14 @@ const requestCommand = {
                 });
             }
 
-            // البحث عن روم claim-work
+            // البحث عن روم الإعلانات بالاسم الكامل
             const claimWorkChannel = interaction.guild.channels.cache.find(
-                ch => getFirstTwoWords(ch.name.replace(/-/g, ' ')) === 'claim work' && ch.isTextBased()
+                ch => ch.name === '🏹〢claim・work' && ch.isTextBased()
             );
 
             if (!claimWorkChannel) {
                 return interaction.reply({ 
-                    content: '❌ لم أجد روم claim-work!', 
+                    content: '❌ لم أجد روم 🏹〢claim・work!', 
                     ephemeral: true 
                 });
             }
