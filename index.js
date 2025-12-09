@@ -65,7 +65,31 @@ async function checkSheetAndSendMessages() {
                 .toLowerCase()
                 .replace(/\s+/g, '-');
 
-            const channel = client.channels.cache.find(c => c.name === discordChannelName);
+           // ========================
+// تحويل الاسم وتنظيفه
+// ========================
+function normalizeName(name) {
+    return name
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "") // حذف علامات الترقيم والكوما والأبوسروف
+        .trim();
+}
+
+// أخذ أول كلمتين فقط
+function firstTwoWords(name) {
+    return normalizeName(name).split(/\s+/).slice(0, 2).join(" ");
+}
+
+// ------------------------
+// إيجاد الروم بناء على أول كلمتين فقط
+// ------------------------
+const targetTwoWords = firstTwoWords(channelNameFromSheet);
+
+const channel = client.channels.cache.find(c => {
+    const discordTwoWords = firstTwoWords(c.name);
+    return discordTwoWords === targetTwoWords;
+});
+
             if (!channel) continue;
 
             // Initialize tracking for this channel if not exists
