@@ -35,7 +35,7 @@ const sheetsClient = await auth.getClient();
 const sheets = google.sheets({ version: "v4", auth: sheetsClient });
 
 const spreadsheetId = process.env.SHEET_ID;
-const sheetName = process.env.SHEET_NAME || "Sheet6";
+const sheetName = process.env.SHEET_NAME || "PROGRESS";
 
 // ====== TRACK SENT MESSAGES ======
 const sentMessages = {};
