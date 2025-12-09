@@ -130,22 +130,22 @@ async function checkSheetAndSendMessages() {
             }
 
             // Send message for number 7 (only once)
-            if (number === 7 && !sentMessages[channelKey][7]) {
-                const user = "895989670142435348";
-                await channel.send(`<@${user}> Come here`);
-                sentMessages[channelKey][7] = true;
-                console.log(`✅ Sent message for ${channelKey} at number 7`);
+            if (number === 7 && !sentMessages[channelKey][6]) {
+                const user = "1269706276309569581";
+                await channel.send(`<@&${user}> Come here these guys are late`);
+                sentMessages[channelKey][6] = true;
+                console.log(`✅ Sent message for ${channelKey} at number 6`);
             }
 
             // Reset tracking if number changes (goes below 5 or above 7)
             if (number < 5) {
                 sentMessages[channelKey][5] = false;
-                sentMessages[channelKey][7] = false;
+                sentMessages[channelKey][6] = false;
             } else if (number > 7) {
-                sentMessages[channelKey][7] = false;
+                sentMessages[channelKey][6] = false;
             } else if (number === 6) {
                 // Between 5 and 7, keep 5 as sent but reset 7
-                sentMessages[channelKey][7] = false;
+                sentMessages[channelKey][6] = false;
             }
         }
     } catch (error) {
