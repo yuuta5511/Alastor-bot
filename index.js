@@ -35,7 +35,7 @@ const sheetsClient = await auth.getClient();
 const sheets = google.sheets({ version: "v4", auth: sheetsClient });
 
 const spreadsheetId = process.env.SHEET_ID;
-const sheetName = "Sheet2"; // اسم الصفحة الثانية
+const sheetName = "Sheet6"; // اسم الصفحة الثانية
 
 // ====== FUNCTION TO CHECK NUMBERS ======
 async function checkSheetAndSendMessages() {
