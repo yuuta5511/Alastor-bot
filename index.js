@@ -2,10 +2,13 @@ import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
 import { google } from "googleapis";
 
+// استيراد بوت الـ Slash Commands
+import './slashCommandsBot.js';
+
 const app = express();
 app.use(express.json());
 
-// ====== DISCORD BOT ======
+// ====== DISCORD BOT (للوظيفة الأولى فقط) ======
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
@@ -17,7 +20,7 @@ if (!token) {
 }
 
 client.login(token)
-    .then(() => console.log(`✅ Bot logged in as ${client.user.tag}`))
+    .then(() => console.log(`✅ Main Bot logged in as ${client.user.tag}`))
     .catch(err => {
         console.error("❌ فشل تسجيل الدخول:", err);
         process.exit(1);
@@ -155,7 +158,8 @@ async function checkSheetAndSendMessages() {
 
 // ====== WAIT FOR BOT TO BE READY ======
 client.once('ready', () => {
-    console.log('✅ Discord bot is ready!');
+    console.log('✅ Main Discord bot is ready!');
+    console.log('🔄 Starting sheet monitoring...');
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
 });
@@ -183,4 +187,14 @@ app.post("/update", async (req, res) => {
     res.send("OK");
 });
 
-app.listen(3000, () => console.log("API running on port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+
+// معالجة الأخطاء
+process.on('unhandledRejection', error => {
+    console.error('❌ Unhandled promise rejection:', error);
+});
+
+process.on('uncaughtException', error => {
+    console.error('❌ Uncaught exception:', error);
+});
