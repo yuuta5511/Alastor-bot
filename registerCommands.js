@@ -9,9 +9,11 @@ const commands = [
                 .setDescription('The role type you need')
                 .setRequired(true)
                 .addChoices(
-                    { name: 'Translator (TL)', value: 'TL' },
                     { name: 'Editor (ED)', value: 'ED' },
-                    { name: 'Proofreader (PR)', value: 'PR' }
+                    { name: 'Proofreader (PR)', value: 'PR' },
+                    { name: 'Translator KTL', value: 'KTL' },
+                    { name: 'Translator JTL', value: 'JTL' },
+                    { name: 'Translator CTL', value: 'CTL' },
                 ))
         .addRoleOption(option =>
             option.setName('for')
