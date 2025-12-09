@@ -158,12 +158,24 @@ const assignCommand = {
             const projectRole = interaction.options.getRole('project');
             const fromChapter = interaction.options.getInteger('from');
 
-            if (!targetUser || !projectRole) {
-                return interaction.editReply({ content: '❌ Invalid user or role!' });
+            console.log('Target User:', targetUser?.tag);
+            console.log('Project Role:', projectRole?.name);
+            console.log('From Chapter:', fromChapter);
+
+            if (!targetUser) {
+                return interaction.editReply({ content: '❌ User not found!' });
+            }
+
+            if (!projectRole) {
+                return interaction.editReply({ content: '❌ Role not found!' });
             }
 
             const guild = interaction.guild;
-            const member = await guild.members.fetch(targetUser.id);
+            const member = await guild.members.fetch(targetUser.id).catch(() => null);
+            
+            if (!member) {
+                return interaction.editReply({ content: '❌ User is not a member of this server!' });
+            }
             
             // Add role to user
             await member.roles.add(projectRole);
