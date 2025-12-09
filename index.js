@@ -44,10 +44,11 @@ const sentMessages = {};
 function getFirstTwoWords(text) {
     if (!text) return "";
     
-    // Remove punctuation and split by spaces
+    // Remove ALL punctuation (including apostrophes) and emojis, keep only letters/numbers
     const words = text
         .toLowerCase()
-        .replace(/[^\w\s']/g, '') // Keep apostrophes, remove other punctuation
+        .replace(/[^\w\s]/g, '') // Remove all punctuation
+        .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII (emojis, arabic letters, etc)
         .split(/\s+/)
         .filter(w => w.length > 0);
     
