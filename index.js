@@ -66,26 +66,26 @@ async function checkSheetAndSendMessages() {
                 .replace(/\s+/g, '-');
 
             // Function to remove emojis
+// Remove visible emojis ONLY (safe regex)
 function removeEmojis(str) {
-    return str.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\u24C2|[\uD83C-\uDBFF\uDC00-\uDFFF])+?/g, '')
-              .replace(/:[^:\s]*(?:::[^:\s]*)*:/g, '') // remove :emoji_name:
-              .trim();
+    return str.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim();
 }
 
-// Extract first two words (ignoring emojis)
-const cleanSheetName = removeEmojis(channelNameFromSheet)
-    .toLowerCase()
-    .split(/\s+/)
-    .slice(0, 2)
-    .join(" ");
-
-const channel = client.channels.cache.find(c => {
-    const cleanChannelName = removeEmojis(c.name)
+// Extract first two words ignoring emojis
+function normalizeName(name) {
+    return removeEmojis(name)
         .toLowerCase()
+        .replace(/[^a-z0-9\s-]/gi, "") // remove symbols but keep letters/numbers/hyphens
+        .trim()
         .split(/\s+/)
         .slice(0, 2)
         .join(" ");
+}
 
+const cleanSheetName = normalizeName(channelNameFromSheet);
+
+const channel = client.channels.cache.find(c => {
+    const cleanChannelName = normalizeName(c.name);
     return cleanChannelName === cleanSheetName;
 });
             if (!channel) continue;
