@@ -229,7 +229,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = process.env.SHEET_NAME || 'PROGRESS';
 
-      // ====== قراءة الشيت ======
+     // ====== قراءة الشيت ======
 const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${sheetName}!A:ZZ`,
@@ -237,16 +237,32 @@ const response = await sheets.spreadsheets.values.get({
 
 const rows = response.data.values;
 if (!rows || rows.length === 0) {
-    return interaction.reply({ content: '❌ الشيت فارغ!', ephemeral: true });
+    return interaction.reply({
+        content: '❌ الشيت فارغ!',
+        ephemeral: true
+    });
 }
 
-// ====== تحديد عمود L بطريقة ديناميكية ======
+// ====== جلب رأس الأعمدة ======
 const header = rows[0];
 
-// ابحث عن عمود اسمه "L" (اللي هو حقيقةً العمود اللي فيه اللينك)
-const driveColumnIndex = 11; // العمود L
+// ====== البحث عن العمود الذي عنوانه V221 ======
+const driveColumnIndex = header.findIndex(col =>
+    col &&
+    typeof col === "string" &&
+    col.trim().toLowerCase() === "v221"
+);
 
-// ====== البحث عن الصف الصحيح حسب أول كلمتين من اسم الرول ======
+console.log("📌 Drive Column Index:", driveColumnIndex);
+
+if (driveColumnIndex === -1) {
+    return interaction.reply({
+        content: '❌ لم أجد عمود V221 في الصف الأول!',
+        ephemeral: true
+    });
+}
+
+// ====== البحث عن صف المشروع ======
 const roleFirstTwo = getFirstTwoWords(role.name);
 
 const projectRow = rows.find(row => {
@@ -262,19 +278,17 @@ if (!projectRow) {
     });
 }
 
-// ====== استخراج رابط Drive من عمود L ======
+// ====== استخراج الرابط من عمود V221 ======
 const driveLink = projectRow[driveColumnIndex];
 
 console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
 
 if (!driveLink) {
     return interaction.reply({
-        content: '❌ لم أجد رابط Drive للمشروع في العمود L!',
+        content: `❌ لقيت صف المشروع، لكن خانة V221 فيه فاضية!`,
         ephemeral: true
     });
 }
-
-
             // استخراج File ID
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
             if (!fileIdMatch) {
