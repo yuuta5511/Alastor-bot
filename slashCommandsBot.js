@@ -130,6 +130,121 @@ const requestCommand = {
 
 slashBot.slashCommands.set(requestCommand.data.name, requestCommand);
 
+// ====== /assign Command ======
+const assignCommand = {
+    data: new SlashCommandBuilder()
+        .setName('assign')
+        .setDescription('Assign a user to a project with Drive access')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('The user to assign')
+                .setRequired(true))
+        .addRoleOption(option =>
+            option.setName('project')
+                .setDescription('Select the project role')
+                .setRequired(true))
+        .addIntegerOption(option =>
+            option.setName('from')
+                .setDescription('Starting chapter number')
+                .setRequired(true)
+                .setMinValue(1)),
+
+    async execute(interaction) {
+        console.log(`/assign command triggered by ${interaction.user.tag}`);
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const targetUser = interaction.options.getUser('user');
+            const projectRole = interaction.options.getRole('project');
+            const fromChapter = interaction.options.getInteger('from');
+
+            if (!targetUser || !projectRole) {
+                return interaction.editReply({ content: '❌ Invalid user or role!' });
+            }
+
+            const guild = interaction.guild;
+            const member = await guild.members.fetch(targetUser.id);
+            
+            // Add role to user
+            await member.roles.add(projectRole);
+
+            // Get user email
+            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
+            if (!emailsChannel) {
+                return interaction.editReply({ content: '❌ Emails channel not found!' });
+            }
+
+            const messages = await emailsChannel.messages.fetch({ limit: 100 });
+            const userMessages = messages.filter(msg => msg.author.id === targetUser.id);
+            if (userMessages.size === 0) {
+                return interaction.editReply({ content: '❌ No email found for this user in emails channel!' });
+            }
+
+            const lastUserMessage = userMessages.first();
+            const userEmail = lastUserMessage.content.trim();
+
+            // ====== Google API Setup ======
+            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+            const auth = new google.auth.GoogleAuth({
+                credentials: creds,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+            });
+
+            const authClient = await auth.getClient();
+            const sheets = google.sheets({ version: 'v4', auth: authClient });
+            const drive = google.drive({ version: 'v3', auth: authClient });
+
+            const spreadsheetId = process.env.SHEET_ID;
+            const sheetName = process.env.SHEET_NAME || 'PROGRESS';
+
+            const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${sheetName}!A:ZZ` });
+            const rows = response.data.values;
+            if (!rows || rows.length === 0) return interaction.editReply({ content: '❌ Spreadsheet is empty!' });
+
+            const header = rows[0];
+            const driveColumnIndex = header.findIndex(col => col && typeof col === "string" && col.trim().toLowerCase() === "v221");
+            console.log("📌 Drive Column Index:", driveColumnIndex);
+            if (driveColumnIndex === -1) return interaction.editReply({ content: '❌ V221 column not found!' });
+
+            const roleFirstThree = getFirstThreeWords(projectRole.name);
+            const projectRow = rows.find(row => row[0] && getFirstThreeWords(row[0]) === roleFirstThree);
+            if (!projectRow) return interaction.editReply({ content: `❌ Project "${projectRole.name}" not found in spreadsheet!` });
+
+            const driveLink = projectRow[driveColumnIndex];
+            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
+            if (!driveLink) return interaction.editReply({ content: `❌ Found project row but V221 is empty!` });
+
+            const fileIdMatch = driveLink.match(/[-\w]{25,}/);
+            if (!fileIdMatch) return interaction.editReply({ content: '❌ Invalid Drive link!' });
+            const fileId = fileIdMatch[0];
+
+            try {
+                await drive.permissions.create({
+                    fileId,
+                    requestBody: { role: 'writer', type: 'user', emailAddress: userEmail },
+                    sendNotificationEmail: false,
+                });
+            } catch (driveError) {
+                console.error('Drive permission error:', driveError);
+                return interaction.editReply({ content: '❌ Error giving Drive permission!' });
+            }
+
+            const targetChannel = findMatchingChannel(projectRole.name);
+            if (targetChannel) {
+                await targetChannel.send(`${targetUser} start from ch ${fromChapter}, access granted ✅`);
+            }
+
+            await interaction.editReply({ content: `✅ Done! ${targetUser} received role ${projectRole.name} and Drive access.` });
+
+        } catch (error) {
+            console.error('Error in /assign command:', error);
+            await interaction.editReply({ content: '❌ An error occurred while executing the command!' });
+        }
+    }
+};
+
+slashBot.slashCommands.set(assignCommand.data.name, assignCommand);
+
 // ====== Handle Interactions ======
 slashBot.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
