@@ -185,14 +185,14 @@ slashBot.on('interactionCreate', async (interaction) => {
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            // البحث عن روم emails باستخدام نفس الطريقة
+            // البحث عن روم الإيميلات بالاسم الكامل
             const emailsChannel = guild.channels.cache.find(
-                ch => getFirstTwoWords(ch.name.replace(/-/g, ' ')) === 'emails' && ch.isTextBased()
+                ch => ch.name === '📝〢emails' && ch.isTextBased()
             );
 
             if (!emailsChannel) {
                 return interaction.reply({ 
-                    content: '❌ لم أجد روم emails!', 
+                    content: '❌ لم أجد روم 📝〢emails!', 
                     ephemeral: true 
                 });
             }
