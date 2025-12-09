@@ -53,6 +53,9 @@ async function checkSheetAndSendMessages() {
         const rows = res.data.values || [];
 
         for (const row of rows) {
+            console.log("ROW RAW =", row);
+console.log("NAME RAW =", row[0]);
+
             const channelNameFromSheet = row[0]; // العمود الأول فيه اسم الروم
             const number = Number(row[5]); // العمود السادس فيه الرقم
             const status = row[7]; // العمود الثامن فيه الحالة
