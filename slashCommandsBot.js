@@ -23,8 +23,8 @@ const roleMentions = {
     'JTL': '<@&1288004879020724276>',
 };
 
-// ====== FUNCTION TO EXTRACT FIRST TWO WORDS ======
-function getFirstTwoWords(text) {
+// ====== FUNCTION TO EXTRACT FIRST THREE WORDS ======
+function getFirstThreeWords(text) {
     if (!text) return "";
     const words = text
         .toLowerCase()
@@ -32,16 +32,16 @@ function getFirstTwoWords(text) {
         .replace(/[^\x00-\x7F]/g, '')
         .split(/\s+/)
         .filter(w => w.length > 0);
-    return words.slice(0, 2).join(' ');
+    return words.slice(0, 3).join(' ');
 }
 
 // ====== FUNCTION TO FIND MATCHING CHANNEL ======
 function findMatchingChannel(roleName) {
-    const firstTwoWords = getFirstTwoWords(roleName);
-    if (!firstTwoWords) return null;
+    const firstThreeWords = getFirstThreeWords(roleName);
+    if (!firstThreeWords) return null;
     const found = slashBot.channels.cache.find(c => {
-        const channelFirstTwo = getFirstTwoWords(c.name.replace(/-/g, ' '));
-        return channelFirstTwo === firstTwoWords && c.isTextBased();
+        const channelFirstThree = getFirstThreeWords(c.name.replace(/-/g, ' '));
+        return channelFirstThree === firstThreeWords && c.isTextBased();
     });
     return found;
 }
@@ -207,8 +207,8 @@ slashBot.on('interactionCreate', async (interaction) => {
             console.log("📌 Drive Column Index:", driveColumnIndex);
             if (driveColumnIndex === -1) return interaction.editReply({ content: '❌ V221 column not found!' });
 
-            const roleFirstTwo = getFirstTwoWords(role.name);
-            const projectRow = rows.find(row => row[0] && getFirstTwoWords(row[0]) === roleFirstTwo);
+            const roleFirstThree = getFirstThreeWords(role.name);
+            const projectRow = rows.find(row => row[0] && getFirstThreeWords(row[0]) === roleFirstThree);
             if (!projectRow) return interaction.editReply({ content: `❌ Project "${role.name}" not found in spreadsheet!` });
 
             const driveLink = projectRow[driveColumnIndex];
