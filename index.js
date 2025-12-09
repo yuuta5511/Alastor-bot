@@ -65,29 +65,7 @@ async function checkSheetAndSendMessages() {
                 .toLowerCase()
                 .replace(/\s+/g, '-');
 
-            // Function to remove emojis
-// Remove visible emojis ONLY (safe regex)
-function removeEmojis(str) {
-    return str.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim();
-}
-
-// Extract first two words ignoring emojis
-function normalizeName(name) {
-    return removeEmojis(name)
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/gi, "") // remove symbols but keep letters/numbers/hyphens
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .join(" ");
-}
-
-const cleanSheetName = normalizeName(channelNameFromSheet);
-
-const channel = client.channels.cache.find(c => {
-    const cleanChannelName = normalizeName(c.name);
-    return cleanChannelName === cleanSheetName;
-});
+            const channel = client.channels.cache.find(c => c.name === discordChannelName);
             if (!channel) continue;
 
             // Initialize tracking for this channel if not exists
