@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, Collection, SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from "discord.js";
 import { google } from "googleapis";
+import { registerCommands } from './registerCommands.js';
 
 // ====== DISCORD BOT للـ Slash Commands ======
 const slashBot = new Client({
@@ -233,8 +234,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            console.log(`📁 Drive link: ${driveLink}`);
-
             // استخراج File ID
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
             if (!fileIdMatch) {
@@ -245,8 +244,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             }
 
             const fileId = fileIdMatch[0];
-            console.log(`🔑 File ID: ${fileId}`);
-            console.log(`📧 Granting access to: ${userEmail}`);
 
             // إعطاء الصلاحية
             try {
@@ -259,7 +256,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                     },
                     sendNotificationEmail: false,
                 });
-                console.log(`✅ Access granted successfully`);
             } catch (driveError) {
                 console.error('Drive permission error:', driveError);
                 return interaction.reply({ 
@@ -314,8 +310,11 @@ slashBot.on('interactionCreate', async (interaction) => {
 });
 
 // ====== Bot Ready ======
-slashBot.once('ready', () => {
+slashBot.once('ready', async () => {
     console.log(`✅ Slash Commands Bot is ready as ${slashBot.user.tag}`);
+    
+    // تسجيل الـ Commands تلقائياً
+    await registerCommands();
 });
 
 // ====== Login ======
