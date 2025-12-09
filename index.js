@@ -80,7 +80,7 @@ async function checkSheetAndSendMessages() {
                     "1269706276288467058",
                     "1270089817517981859"
                 ];
-                await channel.send(`${users.map(u => `<@${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
+                await channel.send(`${users.map(u => `<@&${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
                 sentMessages[discordChannelName][5] = true;
                 console.log(`✅ Sent message for ${discordChannelName} at number 5`);
             }
