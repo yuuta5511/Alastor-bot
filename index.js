@@ -35,7 +35,7 @@ const sheetsClient = await auth.getClient();
 const sheets = google.sheets({ version: "v4", auth: sheetsClient });
 
 const spreadsheetId = process.env.SHEET_ID;
-const sheetName = process.env.SHEET_NAME || "Sheet6"; // Default to Sheet1 if not specified
+const sheetName = process.env.SHEET_NAME || "Sheet6";
 
 // ====== TRACK SENT MESSAGES ======
 const sentMessages = {};
@@ -57,9 +57,12 @@ async function checkSheetAndSendMessages() {
 
             if (status !== "Ongoing") continue;
 
-            // ======= تعديل هنا: أول كلمتين فقط =======
+            // ======= تعديل هنا: أول كلمتين فقط وتحويل العلامات =======
             const firstTwoWords = channelNameFromSheet.split(/\s+/).slice(0, 2).join(' ');
-            const discordChannelNamePart = firstTwoWords.toLowerCase().replace(/\s+/g, '-');
+            const discordChannelNamePart = firstTwoWords
+                .replace(/[\s,.'`]/g, '-') // أي مسافة أو , أو ' أو . أو `
+                .toLowerCase();
+
             const channel = client.channels.cache.find(c => c.name.startsWith(discordChannelNamePart));
             // ======================================
 
