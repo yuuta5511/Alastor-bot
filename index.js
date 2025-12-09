@@ -38,8 +38,6 @@ const spreadsheetId = process.env.SHEET_ID;
 const sheetName = process.env.SHEET_NAME || "Sheet6"; // Default to Sheet1 if not specified
 
 // ====== TRACK SENT MESSAGES ======
-// Store which messages have been sent for each channel
-// Format: { "channel-name": { 5: true, 7: false } }
 const sentMessages = {};
 
 // ====== FUNCTION TO CHECK NUMBERS ======
@@ -47,109 +45,55 @@ async function checkSheetAndSendMessages() {
     try {
         const res = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${sheetName}!A:Z` // كل الأعمدة حتى Z
+            range: `${sheetName}!A:Z`
         });
 
         const rows = res.data.values || [];
 
         for (const row of rows) {
-            console.log("ROW RAW =", row);
-console.log("NAME RAW =", row[0]);
-
             const channelNameFromSheet = row[0]; // العمود الأول فيه اسم الروم
             const number = Number(row[5]); // العمود السادس فيه الرقم
             const status = row[7]; // العمود الثامن فيه الحالة
 
-            // Skip if status is not "Ongoing"
             if (status !== "Ongoing") continue;
 
-            // Convert sheet name to Discord format (spaces to hyphens, lowercase)
-            const discordChannelName = channelNameFromSheet
-                .toLowerCase()
-                .replace(/\s+/g, '-');
-
-           // ========================
-// تحويل الاسم وتنظيفه
-// ========================
-// ========================
-// تحويل الاسم وتنظيفه
-// ========================
-function normalizeName(name) {
-    return name
-        .toLowerCase()
-        .replace(/[^\w]+/g, " ") // استبدال علامات الترقيم بمسافة
-        .replace(/\s+/g, " ")    // توحيد المسافات
-        .trim();
-}
-
-// أخذ أول كلمتين فقط
-function firstTwoWords(name) {
-    return normalizeName(name).split(" ").slice(0, 2).join(" ");
-}
-
-// ------------------------
-// Debug Logs
-// ------------------------
-const targetTwoWords = firstTwoWords(channelNameFromSheet);
-console.log("📌 From Sheet (raw):", channelNameFromSheet);
-console.log("📌 From Sheet → normalized:", normalizeName(channelNameFromSheet));
-console.log("📌 From Sheet → firstTwoWords:", targetTwoWords);
-
-let foundChannel = null;
-
-client.channels.cache.forEach(c => {
-    const discordTwoWords = firstTwoWords(c.name);
-
-    console.log("— — — — — —");
-    console.log("🔍 Checking channel:", c.name);
-    console.log("Discord normalized:", normalizeName(c.name));
-    console.log("Discord firstTwoWords:", discordTwoWords);
-
-    if (discordTwoWords === targetTwoWords) {
-        console.log("🎯 MATCH FOUND:", c.name);
-        foundChannel = c;
-    }
-});
-
-const channel = foundChannel;
-
+            // ======= تعديل هنا: أول كلمتين فقط =======
+            const firstTwoWords = channelNameFromSheet.split(/\s+/).slice(0, 2).join(' ');
+            const discordChannelNamePart = firstTwoWords.toLowerCase().replace(/\s+/g, '-');
+            const channel = client.channels.cache.find(c => c.name.startsWith(discordChannelNamePart));
+            // ======================================
 
             if (!channel) continue;
 
-            // Initialize tracking for this channel if not exists
-            if (!sentMessages[discordChannelName]) {
-                sentMessages[discordChannelName] = { 5: false, 7: false };
+            if (!sentMessages[discordChannelNamePart]) {
+                sentMessages[discordChannelNamePart] = { 5: false, 7: false };
             }
 
-            // Send message for number 5 (only once)
-            if (number === 5 && !sentMessages[discordChannelName][5]) {
+            if (number === 5 && !sentMessages[discordChannelNamePart][5]) {
                 const users = [
                     "1269706276288467057",
                     "1269706276288467058",
                     "1270089817517981859"
                 ];
                 await channel.send(`${users.map(u => `<@&${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
-                sentMessages[discordChannelName][5] = true;
-                console.log(`✅ Sent message for ${discordChannelName} at number 5`);
+                sentMessages[discordChannelNamePart][5] = true;
+                console.log(`✅ Sent message for ${discordChannelNamePart} at number 5`);
             }
 
-            // Send message for number 7 (only once)
-            if (number === 7 && !sentMessages[discordChannelName][7]) {
+            if (number === 7 && !sentMessages[discordChannelNamePart][7]) {
                 const user = "895989670142435348";
                 await channel.send(`<@${user}> Come here`);
-                sentMessages[discordChannelName][7] = true;
-                console.log(`✅ Sent message for ${discordChannelName} at number 7`);
+                sentMessages[discordChannelNamePart][7] = true;
+                console.log(`✅ Sent message for ${discordChannelNamePart} at number 7`);
             }
 
-            // Reset tracking if number changes (goes below 5 or above 7)
             if (number < 5) {
-                sentMessages[discordChannelName][5] = false;
-                sentMessages[discordChannelName][7] = false;
+                sentMessages[discordChannelNamePart][5] = false;
+                sentMessages[discordChannelNamePart][7] = false;
             } else if (number > 7) {
-                sentMessages[discordChannelName][7] = false;
+                sentMessages[discordChannelNamePart][7] = false;
             } else if (number === 6) {
-                // Between 5 and 7, keep 5 as sent but reset 7
-                sentMessages[discordChannelName][7] = false;
+                sentMessages[discordChannelNamePart][7] = false;
             }
         }
     } catch (error) {
@@ -160,12 +104,11 @@ const channel = foundChannel;
 // ====== WAIT FOR BOT TO BE READY ======
 client.once('ready', () => {
     console.log('✅ Discord bot is ready!');
-    // Start checking after bot is ready
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
 });
 
-// ====== API ENDPOINT (اختياري) ======
+// ====== API ENDPOINT ======
 app.post("/update", async (req, res) => {
     const { channelName, number } = req.body;
     
