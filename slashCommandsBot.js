@@ -232,7 +232,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             // قراءة الشيت
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
-                range: `${sheetName}!A:J`,
+                range: `${sheetName}!A:AL`,
             });
 
             const rows = response.data.values;
