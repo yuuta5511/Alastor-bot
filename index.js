@@ -1,7 +1,6 @@
 import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
 import { google } from "googleapis";
-import { readFileSync } from "fs";
 
 const app = express();
 app.use(express.json());
@@ -25,7 +24,7 @@ client.login(token)
     });
 
 // ====== GOOGLE SHEET SETUP ======
-const creds = JSON.parse(readFileSync('./google-creds.json', 'utf8'));
+const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
 
 const auth = new google.auth.GoogleAuth({
     credentials: creds,
