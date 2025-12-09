@@ -45,22 +45,9 @@ const sentMessages = {};
 // ====== FUNCTION TO CHECK NUMBERS ======
 async function checkSheetAndSendMessages() {
     try {
-        // Get the first sheet if SHEET_NAME is not specified
-        let range = `${sheetName}!A:Z`;
-        
-        // Try to get sheet metadata to use the first available sheet
-        if (!process.env.SHEET_NAME) {
-            const metadata = await sheets.spreadsheets.get({
-                spreadsheetId,
-            });
-            const firstSheet = metadata.data.sheets[0].properties.title;
-            range = `${firstSheet}!A:Z`;
-            console.log(`📊 Reading from sheet: ${firstSheet}`);
-        }
-
         const res = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: range
+            range: `${sheetName}!A:Z` // كل الأعمدة حتى Z
         });
 
         const rows = res.data.values || [];
@@ -73,34 +60,13 @@ async function checkSheetAndSendMessages() {
             // Skip if status is not "Ongoing"
             if (status !== "Ongoing") continue;
 
-            // Remove emojis and get first 2 words from sheet name
-            const cleanSheetName = channelNameFromSheet
-                .replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '') // Remove all emojis
-                .trim()
+            // Convert sheet name to Discord format (spaces to hyphens, lowercase)
+            const discordChannelName = channelNameFromSheet
                 .toLowerCase()
-                .split(/\s+/) // Split by spaces
-                .slice(0, 2) // Take first 2 words
-                .join(' ');
+                .replace(/\s+/g, '-');
 
-            // Find channel that matches first 2 words
-            const channel = client.channels.cache.find(c => {
-                // Remove emojis from Discord channel name too
-                const cleanDiscordName = c.name
-                    .replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '')
-                    .trim()
-                    .toLowerCase()
-                    .replace(/-/g, ' ') // Convert hyphens to spaces
-                    .split(/\s+/)
-                    .slice(0, 2)
-                    .join(' ');
-                
-                return cleanDiscordName === cleanSheetName;
-            });
-
+            const channel = client.channels.cache.find(c => c.name === discordChannelName);
             if (!channel) continue;
-
-            // Use the actual Discord channel name for tracking
-            const discordChannelName = channel.name;
 
             // Initialize tracking for this channel if not exists
             if (!sentMessages[discordChannelName]) {
