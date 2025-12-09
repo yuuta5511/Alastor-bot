@@ -256,7 +256,8 @@ slashBot.on('interactionCreate', async (interaction) => {
             }
 
             // جلب رابط Drive
-            const driveLink = projectRow[39];
+            const driveLink = projectRow[37];
+            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
             if (!driveLink) {
                 return interaction.reply({ 
                     content: '❌ لم أجد رابط Drive للمشروع!', 
