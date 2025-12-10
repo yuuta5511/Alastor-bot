@@ -46,7 +46,7 @@ function findMatchingChannel(roleName) {
     return found;
 }
 
-// ====== /request Command ======
+// ====== /request Command - FIXED VERSION ======
 const requestCommand = {
     data: new SlashCommandBuilder()
         .setName('request')
@@ -117,11 +117,12 @@ const requestCommand = {
 
             const row = new ActionRowBuilder().addComponents(button);
 
-            // ✅ FIX: Add allowedMentions to make role mentions work
+            // ✅ الحل: ضيف الـ role mention في الـ content
             await claimWorkChannel.send({ 
+                content: roleMentions[roleType] || '', // ← هنا المنشن علشان الإشعار يوصل
                 embeds: [embed], 
                 components: [row],
-                allowedMentions: { parse: ['roles', 'users'] }
+                allowedMentions: { parse: ['roles'] } // ← مهم جداً علشان يشتغل
             });
 
             await interaction.editReply({ content: `✅ Request sent successfully to ${claimWorkChannel}!` });
@@ -132,7 +133,6 @@ const requestCommand = {
         }
     }
 };
-
 slashBot.slashCommands.set(requestCommand.data.name, requestCommand);
 
 // ====== /assign Command ======
