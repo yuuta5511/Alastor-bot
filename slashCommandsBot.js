@@ -117,7 +117,12 @@ const requestCommand = {
 
             const row = new ActionRowBuilder().addComponents(button);
 
-            await claimWorkChannel.send({ embeds: [embed], components: [row] });
+            // ✅ FIX: Add allowedMentions to make role mentions work
+            await claimWorkChannel.send({ 
+                embeds: [embed], 
+                components: [row],
+                allowedMentions: { parse: ['roles', 'users'] }
+            });
 
             await interaction.editReply({ content: `✅ Request sent successfully to ${claimWorkChannel}!` });
 
@@ -243,7 +248,11 @@ const assignCommand = {
 
             const targetChannel = findMatchingChannel(projectRole.name);
             if (targetChannel) {
-                await targetChannel.send(`${targetUser} start from ch ${fromChapter}, access granted ✅`);
+                // ✅ FIX: Add allowedMentions for user mentions
+                await targetChannel.send({
+                    content: `${targetUser} start from ch ${fromChapter}, access granted ✅`,
+                    allowedMentions: { parse: ['users'] }
+                });
             }
 
             await interaction.editReply({ content: `✅ Done! ${targetUser} received role ${projectRole.name} and Drive access.` });
@@ -359,7 +368,11 @@ slashBot.on('interactionCreate', async (interaction) => {
 
             const targetChannel = findMatchingChannel(role.name);
             if (targetChannel) {
-                await targetChannel.send(`${acceptingUser} start from ch ${fromChapter}, access granted ✅`);
+                // ✅ FIX: Add allowedMentions for user mentions
+                await targetChannel.send({
+                    content: `${acceptingUser} start from ch ${fromChapter}, access granted ✅`,
+                    allowedMentions: { parse: ['users'] }
+                });
             }
 
             const disabledButton = new ButtonBuilder()
