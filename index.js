@@ -122,7 +122,7 @@ async function checkSheetAndSendMessages() {
 
             // Send message for number 4 (only once)
             if (number === 4 && !sentMessages[channelKey][4]) {
-                await channel.send(`<@&${supervisorRole}> Come here these guys finished nothing for the last 4 days ╰（‵□′）╯`);
+                await channel.send(`<@&${supervisorRole}> Come here, these guys finished nothing for the last 4 days ╰（‵□′）╯`);
                 sentMessages[channelKey][4] = true;
             }
 
