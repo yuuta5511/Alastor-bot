@@ -98,36 +98,46 @@ async function checkSheetAndSendMessages() {
 
             // Initialize tracking for this channel if not exists
             if (!sentMessages[channelKey]) {
-                sentMessages[channelKey] = { 3: false, 5: false };
+                sentMessages[channelKey] = { 2: false, 3: false, 4: false };
+            }
+
+            const threeRoles = [
+                "1269706276288467057",
+                "1269706276288467058",
+                "1270089817517981859"
+            ];
+            const supervisorRole = "1269706276309569581";
+
+            // Send message for number 2 (only once)
+            if (number === 2 && !sentMessages[channelKey][2]) {
+                await channel.send(`${threeRoles.map(u => `<@&${u}>`).join(" ")} Faster u didn't finish any for the last 2 days`);
+                sentMessages[channelKey][2] = true;
             }
 
             // Send message for number 3 (only once)
             if (number === 3 && !sentMessages[channelKey][3]) {
-                const users = [
-                    "1269706276288467057",
-                    "1269706276288467058",
-                    "1270089817517981859"
-                ];
-                await channel.send(`${users.map(u => `<@&${u}>`).join(" ")} Faster or I will call my supervisor on you ￣へ￣`);
+                await channel.send(`${threeRoles.map(u => `<@&${u}>`).join(" ")} 3rd day and still nothing, faster or i will call my supervisor on u ￣へ￣`);
                 sentMessages[channelKey][3] = true;
             }
 
-            // Send message for number 5 (only once)
-            if (number === 5 && !sentMessages[channelKey][5]) {
-                const user = "1269706276309569581";
-                await channel.send(`<@&${user}> Come here these guys are late`);
-                sentMessages[channelKey][5] = true;
+            // Send message for number 4 (only once)
+            if (number === 4 && !sentMessages[channelKey][4]) {
+                await channel.send(`<@&${supervisorRole}> Come here these guys finished nothing for the last 4 days ╰（‵□′）╯`);
+                sentMessages[channelKey][4] = true;
             }
 
-            // Reset tracking if number changes (goes below 3 or above 5)
-            if (number < 3) {
+            // Reset tracking if number changes
+            if (number < 2) {
+                sentMessages[channelKey][2] = false;
                 sentMessages[channelKey][3] = false;
-                sentMessages[channelKey][5] = false;
-            } else if (number > 5) {
-                sentMessages[channelKey][5] = false;
-            } else if (number === 4) {
-                // Between 3 and 5, keep 3 as sent but reset 5
-                sentMessages[channelKey][5] = false;
+                sentMessages[channelKey][4] = false;
+            } else if (number === 2) {
+                // Reset 3 and 4
+                sentMessages[channelKey][3] = false;
+                sentMessages[channelKey][4] = false;
+            } else if (number === 3) {
+                // Reset 4
+                sentMessages[channelKey][4] = false;
             }
         }
     } catch (error) {
@@ -155,11 +165,14 @@ app.post("/update", async (req, res) => {
         return res.status(404).send("Channel not found");
     }
 
-    if (number == 3) {
-        await channel.send("🔔 الرقم وصل 3 — الرسالة رقم 1");
+    if (number == 2) {
+        await channel.send("🔔 الرقم وصل 2 — الرسالة رقم 1");
     }
-    if (number == 5) {
-        await channel.send("🚨 الرقم وصل 5 — الرسالة رقم 2");
+    if (number == 3) {
+        await channel.send("⚠️ الرقم وصل 3 — الرسالة رقم 2");
+    }
+    if (number == 4) {
+        await channel.send("🚨 الرقم وصل 4 — الرسالة رقم 3");
     }
 
     res.send("OK");
