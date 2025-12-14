@@ -69,9 +69,9 @@ const weekliesCommand = {
                 }
 
                 if (foundToday) {
-                    // If we hit another day name, stop
-                    if (isDayName) {
-                        console.log(`🛑 Found next day "${cellValue}" at row ${i + 1}, stopping`);
+                    // If we hit another day name OR "end", stop
+                    if (isDayName || cellLower === 'end') {
+                        console.log(`🛑 Found "${cellValue}" at row ${i + 1}, stopping`);
                         break;
                     }
 
