@@ -4,6 +4,7 @@ import { google } from "googleapis";
 
 // استيراد بوت الـ Slash Commands
 import './slashCommandsBot.js';
+import './sheetUpdateListener.js';
 
 const app = express();
 app.use(express.json());
