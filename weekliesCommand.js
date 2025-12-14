@@ -134,7 +134,7 @@ const weekliesCommand = {
             // ====== Send Links to Channel WITH BUTTON ======
             const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
             
-            const mention = '<@&1165517026475917315>';
+            const mention = '<@1165517026475917315>';
             const message = `${mention}\n\n**📚 Weekly Kakao/Ridi Links for ${todayName.toUpperCase()}:**\n\n${kakaoLinks.join('\n')}\n\n**When u done press this button:**`;
 
             // Create button with row indices
