@@ -1,5 +1,4 @@
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
-
 const commands = [
     new SlashCommandBuilder()
         .setName('request')
@@ -48,10 +47,21 @@ const commands = [
     new SlashCommandBuilder()
         .setName('weeklies')
         .setDescription('Send weekly Kakao links from the PROGRESS sheet')
+        .addStringOption(option =>
+            option.setName('day')
+                .setDescription('Choose a specific day (optional - defaults to today)')
+                .setRequired(false)
+                .addChoices(
+                    { name: 'Monday', value: 'monday' },
+                    { name: 'Tuesday', value: 'tuesday' },
+                    { name: 'Wednesday', value: 'wednesday' },
+                    { name: 'Thursday', value: 'thursday' },
+                    { name: 'Friday', value: 'friday' },
+                    { name: 'Saturday', value: 'saturday' },
+                    { name: 'Sunday', value: 'sunday' }
+                ))
 ].map(cmd => cmd.toJSON());
-
 const rest = new REST().setToken(process.env.BOT_TOKEN);
-
 export async function registerCommands() {
     try {
         console.log('🔄 Started registering slash commands...');
@@ -64,7 +74,6 @@ export async function registerCommands() {
         console.error('❌ Error registering commands:', error);
     }
 }
-
 export async function registerCommandsGuild(guildId) {
     try {
         console.log('🔄 Started registering guild slash commands...');
