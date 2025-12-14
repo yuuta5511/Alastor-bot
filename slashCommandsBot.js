@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Collection, SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from "discord.js";
 import { google } from "googleapis";
 import { registerCommands } from './registerCommands.js';
+import weekliesCommand from './weekliesCommand.js';
 
 // ====== DISCORD BOT for Slash Commands ======
 const slashBot = new Client({
@@ -265,7 +266,7 @@ const assignCommand = {
 };
 
 slashBot.slashCommands.set(assignCommand.data.name, assignCommand);
-
+slashBot.slashCommands.set(weekliesCommand.data.name, weekliesCommand);
 // ====== Handle Interactions ======
 slashBot.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
