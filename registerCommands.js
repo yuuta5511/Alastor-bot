@@ -44,7 +44,7 @@ const commands = [
             option.setName('from')
             .setDescription('Starting chapter number')
             .setRequired(true)
-            .setMinValue(1)),  // ← Add comma here!
+            .setMinValue(1)),
     new SlashCommandBuilder()
         .setName('weeklies')
         .setDescription('Send weekly Kakao links from the PROGRESS sheet')
@@ -72,21 +72,6 @@ export async function registerCommandsGuild(guildId) {
             Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
             { body: commands },
         );
-        console.log('✅ Successfully registered guild slash commands!');
-    } catch (error) {
-        console.error('❌ Error registering guild commands:', error);
-    }
-}
-// لو عايز تسجل في سيرفر واحد بس (أسرع للتجربة):
-export async function registerCommandsGuild(guildId) {
-    try {
-        console.log('🔄 Started registering guild slash commands...');
-
-        await rest.put(
-            Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
-            { body: commands },
-        );
-
         console.log('✅ Successfully registered guild slash commands!');
     } catch (error) {
         console.error('❌ Error registering guild commands:', error);
