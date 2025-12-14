@@ -131,12 +131,47 @@ const weekliesCommand = {
                 });
             }
 
-            // ====== Send Links to Channel ======
-            const mention = '<@1165517026475917315>';
-            const message = `${mention}\n\n**📚 Weekly Kakao/Ridi Links for ${todayName.toUpperCase()}:**\n\n${kakaoLinks.join('\n')}`;
+            // ====== Send Links to Channel WITH BUTTON ======
+            const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
+            
+            const mention = '<@&1165517026475917315>';
+            const message = `${mention}\n\n**📚 Weekly Kakao/Ridi Links for ${todayName.toUpperCase()}:**\n\n${kakaoLinks.join('\n')}\n\n**When u done press this button:**`;
+
+            // Create button with row indices
+            const rowIndices = [];
+            let tempFoundToday = false;
+            for (let i = 0; i < rowData.length; i++) {
+                const cell = rowData[i]?.values?.[0];
+                if (!cell) continue;
+                const cellValue = cell.formattedValue || '';
+                const cellLower = cellValue.toLowerCase().trim();
+                const isDayName = daysOfWeek.some(day => cellLower === day);
+                
+                if (!tempFoundToday && cellLower === todayName) {
+                    tempFoundToday = true;
+                    continue;
+                }
+                
+                if (tempFoundToday) {
+                    if (isDayName || cellLower === 'end') break;
+                    const hyperlink = cell.hyperlink;
+                    if ((hyperlink && (hyperlink.includes('kakao') || hyperlink.includes('ridibooks.com'))) ||
+                        (cellValue.includes('kakao') || cellValue.includes('ridi') || cellValue.includes('http'))) {
+                        rowIndices.push(i + 1); // Store 1-based row number
+                    }
+                }
+            }
+
+            const button = new ButtonBuilder()
+                .setCustomId(`weeklies_done_${rowIndices.join(',')}`)
+                .setLabel('All Done ✅')
+                .setStyle(ButtonStyle.Success);
+
+            const row = new ActionRowBuilder().addComponents(button);
 
             await targetChannel.send({
                 content: message,
+                components: [row],
                 allowedMentions: { parse: ['roles'] }
             });
 
