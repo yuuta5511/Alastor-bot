@@ -5,7 +5,20 @@ import { google } from "googleapis";
 const weekliesCommand = {
     data: new SlashCommandBuilder()
         .setName('weeklies')
-        .setDescription('Send weekly Kakao links from the PROGRESS sheet'),
+        .setDescription('Send weekly Kakao links from the PROGRESS sheet')
+        .addStringOption(option =>
+            option.setName('day')
+                .setDescription('Choose a specific day (optional - defaults to today)')
+                .setRequired(false)
+                .addChoices(
+                    { name: 'Monday', value: 'monday' },
+                    { name: 'Tuesday', value: 'tuesday' },
+                    { name: 'Wednesday', value: 'wednesday' },
+                    { name: 'Thursday', value: 'thursday' },
+                    { name: 'Friday', value: 'friday' },
+                    { name: 'Saturday', value: 'saturday' },
+                    { name: 'Sunday', value: 'sunday' }
+                )),
 
     async execute(interaction) {
         try {
@@ -36,12 +49,19 @@ const weekliesCommand = {
                 return interaction.editReply({ content: '❌ Sheet is empty!' });
             }
 
-            // ====== Get Today's Day Name ======
+            // ====== Get Today's Day Name OR User's Choice ======
             const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            const today = new Date();
-            const todayName = daysOfWeek[today.getDay()];
-
-            console.log(`🗓️ Today is: ${todayName}`);
+            const userChoice = interaction.options.getString('day');
+            
+            let todayName;
+            if (userChoice) {
+                todayName = userChoice;
+                console.log(`📅 User selected: ${todayName}`);
+            } else {
+                const today = new Date();
+                todayName = daysOfWeek[today.getDay()];
+                console.log(`🗓️ Today is: ${todayName}`);
+            }
 
             // ====== Find Today's Row and Collect Links ======
             let foundToday = false;
