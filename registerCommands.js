@@ -29,7 +29,6 @@ const commands = [
             .setDescription('Number of chapters needed (optional)')
             .setRequired(false)
             .setMinValue(1)),
-
     new SlashCommandBuilder()
         .setName('assign')
         .setDescription('Assign a role and Drive access to a user')
@@ -45,12 +44,10 @@ const commands = [
             option.setName('from')
             .setDescription('Starting chapter number')
             .setRequired(true)
-            .setMinValue(1))
-].map(cmd => cmd.toJSON());
-
- new SlashCommandBuilder()
+            .setMinValue(1)),  // ← Add comma here!
+    new SlashCommandBuilder()
         .setName('weeklies')
-        .setDescription('Send weekly Kakao links from the PROGRESS sheet')  // ← Add this
+        .setDescription('Send weekly Kakao links from the PROGRESS sheet')
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);
@@ -58,19 +55,28 @@ const rest = new REST().setToken(process.env.BOT_TOKEN);
 export async function registerCommands() {
     try {
         console.log('🔄 Started registering slash commands...');
-
-        // Register commands globally (يظهر في كل السيرفرات)
         await rest.put(
             Routes.applicationCommands(process.env.CLIENT_ID),
             { body: commands },
         );
-
         console.log('✅ Successfully registered slash commands!');
     } catch (error) {
         console.error('❌ Error registering commands:', error);
     }
 }
 
+export async function registerCommandsGuild(guildId) {
+    try {
+        console.log('🔄 Started registering guild slash commands...');
+        await rest.put(
+            Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
+            { body: commands },
+        );
+        console.log('✅ Successfully registered guild slash commands!');
+    } catch (error) {
+        console.error('❌ Error registering guild commands:', error);
+    }
+}
 // لو عايز تسجل في سيرفر واحد بس (أسرع للتجربة):
 export async function registerCommandsGuild(guildId) {
     try {
