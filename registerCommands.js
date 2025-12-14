@@ -48,6 +48,10 @@ const commands = [
             .setMinValue(1))
 ].map(cmd => cmd.toJSON());
 
+ new SlashCommandBuilder()
+        .setName('weeklies')
+        .setDescription('Send weekly Kakao links from the PROGRESS sheet')  // ← Add this
+].map(cmd => cmd.toJSON());
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);
 
