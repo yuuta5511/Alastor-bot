@@ -397,6 +397,81 @@ slashBot.on('interactionCreate', async (interaction) => {
             await interaction.editReply({ content: '❌ Error handling the request!' });
         }
     }
+    // ====== Handle "All Done" Button for Weeklies ======
+    if (interaction.isButton() && interaction.customId.startsWith('weeklies_done_')) {
+        console.log(`Weeklies Done button clicked by ${interaction.user.tag}`);
+        try {
+            await interaction.deferReply();
+
+            // Extract row indices from button ID
+            const rowIndicesStr = interaction.customId.replace('weeklies_done_', '');
+            const rowIndices = rowIndicesStr.split(',').map(n => parseInt(n));
+
+            // ====== Setup Google Sheets ======
+            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+            const auth = new google.auth.GoogleAuth({
+                credentials: creds,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets']
+            });
+
+            const authClient = await auth.getClient();
+            const sheets = google.sheets({ version: 'v4', auth: authClient });
+
+            const spreadsheetId = process.env.SHEET_ID;
+            const sheetName = 'PROGRESS';
+
+            // ====== Get Column L Links ======
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: `${sheetName}!L:L`
+            });
+
+            const columnLData = response.data.values || [];
+            const lLinks = [];
+
+            // Get L column values for the specific rows
+            for (const rowIndex of rowIndices) {
+                if (rowIndex <= columnLData.length && columnLData[rowIndex - 1]) {
+                    const lValue = columnLData[rowIndex - 1][0];
+                    if (lValue && lValue.trim()) {
+                        lLinks.push(lValue);
+                    }
+                }
+            }
+
+            // ====== Disable Button ======
+            const disabledButton = new ButtonBuilder()
+                .setCustomId('weeklies_done_disabled')
+                .setLabel('All Done ✅')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true);
+
+            const newRow = new ActionRowBuilder().addComponents(disabledButton);
+            await interaction.message.edit({ components: [newRow] });
+
+            // ====== Send Notification ======
+            const supervisorMention = '<@&1269706276309569581>';
+            let notificationMessage = `${supervisorMention} All ready to upload you, can up them to`;
+
+            if (lLinks.length > 0) {
+                notificationMessage += `\n\n${lLinks.join('\n')}`;
+            } else {
+                notificationMessage += `\n\n*(No links found in column L for these rows)*`;
+            }
+
+            await interaction.channel.send({
+                content: notificationMessage,
+                allowedMentions: { parse: ['roles'] }
+            });
+
+            await interaction.editReply({ content: '✅ Notification sent!' });
+
+        } catch (error) {
+            console.error('Error handling weeklies done button:', error);
+            await interaction.editReply({ content: '❌ Error processing the request!' });
+        }
+    }
+});
 });
 
 // ====== Bot Ready ======
