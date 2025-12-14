@@ -472,7 +472,6 @@ slashBot.on('interactionCreate', async (interaction) => {
         }
     }
 });
-});
 
 // ====== Bot Ready ======
 slashBot.once('ready', async () => {
