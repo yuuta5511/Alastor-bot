@@ -24,14 +24,15 @@ const weekliesCommand = {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = 'PROGRESS';
 
-            // ====== Get Column B Data ======
-            const response = await sheets.spreadsheets.values.get({
+            // ====== Get Column B Data WITH HYPERLINKS ======
+            const response = await sheets.spreadsheets.get({
                 spreadsheetId,
-                range: `${sheetName}!B:B`
+                ranges: [`${sheetName}!B:B`],
+                includeGridData: true
             });
 
-            const rows = response.data.values;
-            if (!rows || rows.length === 0) {
+            const rowData = response.data.sheets[0]?.data[0]?.rowData;
+            if (!rowData || rowData.length === 0) {
                 return interaction.editReply({ content: '❌ Sheet is empty!' });
             }
 
@@ -46,11 +47,16 @@ const weekliesCommand = {
             let foundToday = false;
             let kakaoLinks = [];
 
-            for (let i = 0; i < rows.length; i++) {
-                const cellValue = rows[i][0]; // Column B value
-                if (!cellValue) continue;
+            for (let i = 0; i < rowData.length; i++) {
+                const cell = rowData[i]?.values?.[0]; // Column B cell
+                if (!cell) continue;
 
+                // Get cell display text
+                const cellValue = cell.formattedValue || '';
                 const cellLower = cellValue.toLowerCase().trim();
+
+                // Check if cell has a hyperlink
+                const hyperlink = cell.hyperlink;
 
                 // Check if this cell is a day name
                 const isDayName = daysOfWeek.some(day => cellLower === day);
@@ -69,10 +75,15 @@ const weekliesCommand = {
                         break;
                     }
 
-                    // Collect Kakao links (assuming they contain "kakao")
-                    if (cellValue.includes('kakao') || cellValue.includes('http')) {
+                    // Collect Kakao links from hyperlinks
+                    if (hyperlink && hyperlink.includes('kakao')) {
+                        kakaoLinks.push(hyperlink);
+                        console.log(`🔗 Found link: ${hyperlink}`);
+                    }
+                    // Also check cell text if it contains direct links
+                    else if (cellValue.includes('kakao') || cellValue.includes('http')) {
                         kakaoLinks.push(cellValue);
-                        console.log(`🔗 Found link: ${cellValue}`);
+                        console.log(`🔗 Found link in text: ${cellValue}`);
                     }
                 }
             }
