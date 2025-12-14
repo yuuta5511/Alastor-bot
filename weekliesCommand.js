@@ -95,13 +95,13 @@ const weekliesCommand = {
                         break;
                     }
 
-                    // Collect Kakao links from hyperlinks
-                    if (hyperlink && hyperlink.includes('kakao')) {
+                    // Collect Kakao and Ridi links from hyperlinks
+                    if (hyperlink && (hyperlink.includes('kakao') || hyperlink.includes('ridibooks.com'))) {
                         kakaoLinks.push(hyperlink);
                         console.log(`🔗 Found link: ${hyperlink}`);
                     }
                     // Also check cell text if it contains direct links
-                    else if (cellValue.includes('kakao') || cellValue.includes('http')) {
+                    else if (cellValue.includes('kakao') || cellValue.includes('ridi') || cellValue.includes('http')) {
                         kakaoLinks.push(cellValue);
                         console.log(`🔗 Found link in text: ${cellValue}`);
                     }
@@ -116,7 +116,7 @@ const weekliesCommand = {
 
             if (kakaoLinks.length === 0) {
                 return interaction.editReply({ 
-                    content: `⚠️ No Kakao links found for ${todayName}!` 
+                    content: `⚠️ No Kakao/Ridi links found for ${todayName}!` 
                 });
             }
 
@@ -133,7 +133,7 @@ const weekliesCommand = {
 
             // ====== Send Links to Channel ======
             const mention = '<@1165517026475917315>';
-            const message = `${mention}\n\n**📚 Weekly Kakao Links for ${todayName.toUpperCase()}:**\n\n${kakaoLinks.join('\n')}`;
+            const message = `${mention}\n\n**📚 Weekly Kakao/Ridi Links for ${todayName.toUpperCase()}:**\n\n${kakaoLinks.join('\n')}`;
 
             await targetChannel.send({
                 content: message,
@@ -141,7 +141,7 @@ const weekliesCommand = {
             });
 
             await interaction.editReply({ 
-                content: `✅ Sent ${kakaoLinks.length} Kakao link(s) to ${targetChannel}!` 
+                content: `✅ Sent ${kakaoLinks.length} Kakao/Ridi link(s) to ${targetChannel}!` 
             });
 
         } catch (error) {
