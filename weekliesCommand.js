@@ -112,7 +112,7 @@ const weekliesCommand = {
             }
 
             // ====== Send Links to Channel ======
-            const mention = '<@&1165517026475917315>';
+            const mention = '<@1165517026475917315>';
             const message = `${mention}\n\n**📚 Weekly Kakao Links for ${todayName.toUpperCase()}:**\n\n${kakaoLinks.join('\n')}`;
 
             await targetChannel.send({
