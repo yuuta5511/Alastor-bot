@@ -5,6 +5,12 @@ import { google } from "googleapis";
 // استيراد بوت الـ Slash Commands
 import './slashCommandsBot.js';
 import './sheetUpdateListener.js';
+import { startWeekliesScheduler } from './weeklies-scheduler.js';
+
+client.once('ready', () => {
+    console.log('✅ Bot is online!');
+    startWeekliesScheduler(client); // ⚠️ لازم تستدعيه هنا!
+});
 
 const app = express();
 app.use(express.json());
