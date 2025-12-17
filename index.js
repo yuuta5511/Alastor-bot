@@ -150,6 +150,10 @@ async function checkSheetAndSendMessages() {
 // ====== WAIT FOR BOT TO BE READY ======
 client.once('ready', () => {
     console.log('✅ Main Discord bot is ready!');
+    
+    // ⭐ START THE WEEKLIES SCHEDULER HERE!
+    startWeekliesScheduler(client);
+    
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
 });
