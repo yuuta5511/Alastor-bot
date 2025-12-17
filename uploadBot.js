@@ -100,6 +100,15 @@ async function uploadChapter(chapterData, interaction) {
         });
 
         const page = await browser.newPage();
+        // Load saved cookies if they exist
+const fs = require('fs');
+const cookiesPath = './cookies.json';
+
+if (fs.existsSync(cookiesPath)) {
+    const cookies = JSON.parse(fs.readFileSync(cookiesPath));
+    await page.setCookie(...cookies);
+    console.log('✅ Loaded saved cookies');
+}
 
         // TODO: You need to handle Discord OAuth login
         // This is the tricky part - we need to save cookies after you login once
