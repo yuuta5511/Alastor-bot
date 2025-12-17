@@ -17,7 +17,7 @@ export function startWeekliesScheduler(client) {
         const minutes = gmt2Time.getMinutes();
         
         // Run at 3:05 AM
-        if (hours === 15 && minutes === 5) {
+        if (hours === 23 && minutes === 47) {
             console.log('⏰ It\'s 3:05 AM GMT+2 - Running automatic weeklies!');
             await sendWeeklies(client);
         }
