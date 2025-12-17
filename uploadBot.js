@@ -112,8 +112,7 @@ async function uploadChapter(chapterData, interaction) {
         // Click "Add new chapter"
         await interaction.followUp({ content: `➕ Clicking "Add new chapter"...` });
         await page.waitForSelector('button:contains("Add new chapter"), a:contains("Add new chapter")');
-        await page.click('button:contains("Add new chapter"), a:contains("Add new chapter")');
-
+        await page.click('a[href*="/uploads/chapters/new"]');
         // Wait for chapter form to load
         await page.waitForSelector('input[type="text"], input[type="number"]', { timeout: 5000 });
 
