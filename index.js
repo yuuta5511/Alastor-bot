@@ -6,6 +6,8 @@ import { google } from "googleapis";
 import './slashCommandsBot.js';
 import './sheetUpdateListener.js';
 import { startWeekliesScheduler } from './autoWeeklies.js';
+// At the top with other imports
+import './uploadBot.js';
 
 const app = express();
 app.use(express.json());
