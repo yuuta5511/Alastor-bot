@@ -95,7 +95,7 @@ async function uploadChapter(chapterData, interaction) {
 
         // Launch browser
         browser = await puppeteer.launch({
-            headless: true, // Set to false for debugging
+            headless: false, // Set to false for debugging - CHANGE TO true when working
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 
@@ -111,52 +111,120 @@ async function uploadChapter(chapterData, interaction) {
 
         // Click "Add new chapter"
         await interaction.followUp({ content: `➕ Clicking "Add new chapter"...` });
-        await page.waitForSelector('button:contains("Add new chapter"), a:contains("Add new chapter")');
+        await page.waitForSelector('a[href*="/uploads/chapters/new"]', { timeout: 10000 });
         await page.click('a[href*="/uploads/chapters/new"]');
+        
         // Wait for chapter form to load
-        await page.waitForSelector('input[type="text"], input[type="number"]', { timeout: 5000 });
+        await interaction.followUp({ content: `⏳ Waiting for form to load...` });
+        await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
-        // Type chapter number (B+1)
+        // Type chapter number (B+1) - First input field for "Chapter Number"
         await interaction.followUp({ content: `🔢 Entering chapter number: ${chapterData.nextChapter}` });
-        const chapterInput = await page.$('input[type="text"], input[type="number"]');
-        await chapterInput.type(chapterData.nextChapter.toString());
+        await page.waitForSelector('input[type="text"]', { timeout: 5000 });
+        const chapterInputs = await page.$$('input[type="text"]');
+        if (chapterInputs.length > 0) {
+            await chapterInputs[0].click();
+            await chapterInputs[0].type(chapterData.nextChapter.toString());
+        }
 
-        // Select "Google Drive" option
+        // Click "Google Drive" tab/button for upload method
         await interaction.followUp({ content: `☁️ Selecting Google Drive upload method...` });
-        await page.select('select', 'google-drive'); // Adjust selector as needed
-        // OR if it's a radio button:
-        // await page.click('input[value="google-drive"]');
+        await page.waitForSelector('button:has-text("Google Drive")', { timeout: 5000 });
+        await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const gdriveBtn = buttons.find(btn => btn.textContent.includes('Google Drive'));
+            if (gdriveBtn) gdriveBtn.click();
+        });
+        await page.waitForTimeout(1000);
 
-        // Paste Drive link
+        // Paste Drive link - should appear after clicking Google Drive
         await interaction.followUp({ content: `🔗 Pasting Drive link...` });
-        const driveLinkInput = await page.$('input[placeholder*="drive"], input[name*="drive"]');
-        await driveLinkInput.type(chapterData.driveLink);
+        // Look for an input that appears after clicking Google Drive
+        const inputFields = await page.$$('input[type="text"]');
+        // Usually the Drive link input is the second or third input
+        if (inputFields.length > 1) {
+            await inputFields[inputFields.length - 1].click(); // Try last input
+            await inputFields[inputFields.length - 1].type(chapterData.driveLink);
+        }
 
-        // Click "Next Step"
+        // Click "Next Step" button
         await interaction.followUp({ content: `⏭️ Clicking Next Step...` });
-        await page.click('button:contains("Next"), button:contains("Next Step")');
+        await page.waitForSelector('button:has-text("Next Step")', { timeout: 5000 });
+        await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const nextBtn = buttons.find(btn => btn.textContent.includes('Next Step'));
+            if (nextBtn) nextBtn.click();
+        });
         await page.waitForTimeout(2000);
 
+        // === PAGE 2: Chapter Settings ===
+        
         // Mark "Paid Chapter" checkbox
         await interaction.followUp({ content: `💰 Setting paid chapter options...` });
-        await page.click('input[type="checkbox"][name*="paid"], input[type="checkbox"]:has-text("Paid Chapter")');
+        await page.waitForSelector('input[type="checkbox"]', { timeout: 5000 });
+        
+        // Find checkbox by looking for one near "Paid Chapter" text
+        await page.evaluate(() => {
+            const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]'));
+            const paidCheckbox = checkboxes.find(cb => {
+                const label = cb.closest('label') || cb.parentElement;
+                return label && label.textContent.includes('Paid Chapter');
+            });
+            if (paidCheckbox) paidCheckbox.click();
+        });
+        await page.waitForTimeout(500);
 
         // Type chapter price (100 for S, 50 for D)
         const price = chapterData.priceType === 'S' ? 100 : 50;
-        const priceInput = await page.$('input[name*="price"], input[placeholder*="price"]');
-        await priceInput.type(price.toString());
+        await interaction.followUp({ content: `💵 Setting price: ${price} points...` });
+        
+        // Find the price input field (usually number type or text near "Price")
+        await page.evaluate((priceValue) => {
+            const inputs = Array.from(document.querySelectorAll('input[type="number"], input[type="text"]'));
+            const priceInput = inputs.find(inp => {
+                const label = inp.closest('label') || inp.parentElement;
+                return label && (label.textContent.includes('Price') || label.textContent.includes('Points'));
+            });
+            if (priceInput) {
+                priceInput.value = priceValue;
+                priceInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }, price);
+        await page.waitForTimeout(500);
 
-        // Check "Permanently Locked"
-        await page.click('input[type="checkbox"]:has-text("Permanently Locked")');
+        // Check "Permanently Locked" checkbox
+        await interaction.followUp({ content: `🔒 Setting permanently locked...` });
+        await page.evaluate(() => {
+            const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]'));
+            const lockedCheckbox = checkboxes.find(cb => {
+                const label = cb.closest('label') || cb.parentElement;
+                return label && label.textContent.includes('Permanently Locked');
+            });
+            if (lockedCheckbox) lockedCheckbox.click();
+        });
+        await page.waitForTimeout(500);
 
         // Click "Next Step" again
         await interaction.followUp({ content: `⏭️ Clicking Next Step again...` });
-        await page.click('button:contains("Next"), button:contains("Next Step")');
+        await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const nextBtn = buttons.find(btn => btn.textContent.includes('Next Step'));
+            if (nextBtn) nextBtn.click();
+        });
         await page.waitForTimeout(2000);
 
+        // === PAGE 3: Review & Publish ===
+        
         // Click "Publish Chapter"
         await interaction.followUp({ content: `📤 Publishing chapter...` });
-        await page.click('button:contains("Publish"), button:contains("Publish Chapter")');
+        await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const publishBtn = buttons.find(btn => 
+                btn.textContent.includes('Publish') || 
+                btn.textContent.includes('Publish Chapter')
+            );
+            if (publishBtn) publishBtn.click();
+        });
 
         // Wait for success
         await page.waitForTimeout(3000);
@@ -168,6 +236,18 @@ async function uploadChapter(chapterData, interaction) {
     } catch (error) {
         console.error("❌ Error uploading chapter:", error);
         await interaction.followUp({ content: `❌ **ERROR:** ${error.message}` });
+        
+        // Take screenshot for debugging
+        if (browser) {
+            try {
+                const page = (await browser.pages())[0];
+                await page.screenshot({ path: 'error-screenshot.png' });
+                console.log("📸 Screenshot saved as error-screenshot.png");
+            } catch (screenshotError) {
+                console.error("Could not take screenshot:", screenshotError);
+            }
+        }
+        
         return false;
     } finally {
         if (browser) {
