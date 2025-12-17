@@ -5,7 +5,7 @@ import { google } from "googleapis";
 // استيراد بوت الـ Slash Commands
 import './slashCommandsBot.js';
 import './sheetUpdateListener.js';
-import { startWeekliesScheduler } from './weeklies-scheduler.js';
+import { startWeekliesScheduler } from './autoWeeklies.js';
 
 const app = express();
 app.use(express.json());
