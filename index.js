@@ -45,8 +45,8 @@ const sheetName = process.env.SHEET_NAME || "PROGRESS";
 // ====== TRACK SENT MESSAGES ======
 const sentMessages = {};
 
-// ====== FUNCTION TO EXTRACT FIRST TWO WORDS ======
-function getFirstTwoWords(text) {
+// ====== FUNCTION TO EXTRACT FIRST THREE WORDS ======
+function getFirstThreeWords(text) {
     if (!text) return "";
     
     // Remove ALL punctuation (including apostrophes) and emojis, keep only letters/numbers
@@ -57,18 +57,18 @@ function getFirstTwoWords(text) {
         .split(/\s+/)
         .filter(w => w.length > 0);
     
-    return words.slice(0, 2).join(' ');
+    return words.slice(0, 3).join(' ');
 }
 
 // ====== FUNCTION TO FIND MATCHING CHANNEL ======
 function findMatchingChannel(sheetChannelName) {
-    const firstTwoWords = getFirstTwoWords(sheetChannelName);
-    if (!firstTwoWords) return null;
+    const firstThreeWords = getFirstThreeWords(sheetChannelName);
+    if (!firstThreeWords) return null;
     
-    // Find channel where its name starts with the first two words
+    // Find channel where its name starts with the first three words
     const found = client.channels.cache.find(c => {
-        const channelFirstTwo = getFirstTwoWords(c.name.replace(/-/g, ' '));
-        return channelFirstTwo === firstTwoWords;
+        const channelFirstThree = getFirstThreeWords(c.name.replace(/-/g, ' '));
+        return channelFirstThree === firstThreeWords;
     });
     
     return found;
@@ -92,7 +92,7 @@ async function checkSheetAndSendMessages() {
             // Skip if status is not "Ongoing"
             if (status !== "Ongoing") continue;
 
-            // Find matching channel by first two words
+            // Find matching channel by first three words
             const channel = findMatchingChannel(channelNameFromSheet);
             if (!channel) continue;
 
