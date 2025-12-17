@@ -1,29 +1,29 @@
-//import express from "express";
-//import { Client, GatewayIntentBits } from "discord.js";
-//import { google } from "googleapis";
+import express from "express";
+import { Client, GatewayIntentBits } from "discord.js";
+import { google } from "googleapis";
 
 // استيراد بوت الـ Slash Commands
-//import './slashCommandsBot.js';
-//import './sheetUpdateListener.js';
-//import { startWeekliesScheduler } from './autoWeeklies.js';
+import './slashCommandsBot.js';
+import './sheetUpdateListener.js';
+import { startWeekliesScheduler } from './autoWeeklies.js';
 // At the top with other imports
-//import './uploadBot.js';
+import './uploadBot.js';
 
-//const app = express();
-//app.use(express.json());
+const app = express();
+app.use(express.json());
 
 // ====== DISCORD BOT (للوظيفة الأولى فقط) ======
-//const client = new Client({
+const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
 
-//const token = process.env.BOT_TOKEN?.trim();
-//if (!token) {
+const token = process.env.BOT_TOKEN?.trim();
+if (!token) {
     console.error("❌ BOT_TOKEN مش موجود!");
     process.exit(1);
 }
 
-//client.login(token)
+client.login(token)
     .then(() => console.log(`✅ Main Bot logged in as ${client.user.tag}`))
     .catch(err => {
         console.error("❌ فشل تسجيل الدخول:", err);
