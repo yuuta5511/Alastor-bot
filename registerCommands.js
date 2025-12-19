@@ -1,4 +1,5 @@
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
+
 const commands = [
     new SlashCommandBuilder()
         .setName('request')
@@ -59,9 +60,14 @@ const commands = [
                     { name: 'Friday', value: 'friday' },
                     { name: 'Saturday', value: 'saturday' },
                     { name: 'Sunday', value: 'sunday' }
-                ))
+                )),
+    new SlashCommandBuilder()
+        .setName('update-members')
+        .setDescription('Manually update the Members sheet with current activity')
 ].map(cmd => cmd.toJSON());
+
 const rest = new REST().setToken(process.env.BOT_TOKEN);
+
 export async function registerCommands() {
     try {
         console.log('🔄 Started registering slash commands...');
@@ -74,6 +80,7 @@ export async function registerCommands() {
         console.error('❌ Error registering commands:', error);
     }
 }
+
 export async function registerCommandsGuild(guildId) {
     try {
         console.log('🔄 Started registering guild slash commands...');
