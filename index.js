@@ -6,13 +6,18 @@ import { google } from "googleapis";
 import './slashCommandsBot.js';
 import './sheetUpdateListener.js';
 import { startWeekliesScheduler } from './autoWeeklies.js';
-
+import { startMemberTracking } from './memberActivityTracker.js';
 const app = express();
 app.use(express.json());
 
 // ====== DISCORD BOT (للوظيفة الأولى فقط) ======
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+    intents: [
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,      // ⬅️ ADD THIS
+        GatewayIntentBits.GuildMembers         // ⬅️ ADD THIS
+    ],
 });
 
 const token = process.env.BOT_TOKEN?.trim();
@@ -153,6 +158,8 @@ client.once('ready', () => {
     
     // ⭐ START THE WEEKLIES SCHEDULER HERE!
     startWeekliesScheduler(client);
+    
+    startMemberTracking(client);          
     
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
