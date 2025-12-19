@@ -267,6 +267,31 @@ const assignCommand = {
 
 slashBot.slashCommands.set(assignCommand.data.name, assignCommand);
 slashBot.slashCommands.set(weekliesCommand.data.name, weekliesCommand);
+
+// ====== /update-members Command ======
+const updateMembersCommand = {
+    data: new SlashCommandBuilder()
+        .setName('update-members')
+        .setDescription('Manually update the Members sheet with current activity'),
+
+    async execute(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+            
+            console.log('🔄 Manual update-members triggered by', interaction.user.tag);
+            
+            const { manualUpdateMembers } = await import('./memberActivityTracker.js');
+            await manualUpdateMembers(interaction.client);
+            
+            await interaction.editReply({ content: '✅ Members sheet updated successfully!' });
+        } catch (error) {
+            console.error('❌ Error in /update-members:', error);
+            await interaction.editReply({ content: `❌ Error updating Members sheet: ${error.message}` });
+        }
+    }
+};
+
+slashBot.slashCommands.set(updateMembersCommand.data.name, updateMembersCommand);
 // ====== Handle Interactions ======
 slashBot.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
