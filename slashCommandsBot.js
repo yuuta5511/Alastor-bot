@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, Collection, SlashCommandBuilder, EmbedBuilde
 import { google } from "googleapis";
 import { registerCommands } from './registerCommands.js';
 import weekliesCommand from './weekliesCommand.js';
+
 // ====== DISCORD BOT for Slash Commands ======
 const slashBot = new Client({
     intents: [
@@ -46,7 +47,7 @@ function findMatchingChannel(roleName) {
     return found;
 }
 
-// ====== /request Command - FIXED VERSION ======
+// ====== /request Command ======
 const requestCommand = {
     data: new SlashCommandBuilder()
         .setName('request')
@@ -92,7 +93,7 @@ const requestCommand = {
             }
 
             const claimWorkChannel = interaction.guild.channels.cache.find(
-                ch => ch.name === '🏹〢claim・work' && ch.isTextBased()
+                ch => ch.name === '🹢claim・work' && ch.isTextBased()
             );
 
             if (!claimWorkChannel) {
@@ -117,12 +118,11 @@ const requestCommand = {
 
             const row = new ActionRowBuilder().addComponents(button);
 
-            // ✅ الحل: ضيف الـ role mention في الـ content
             await claimWorkChannel.send({ 
-                content: roleMentions[roleType] || '', // ← هنا المنشن علشان الإشعار يوصل
+                content: roleMentions[roleType] || '',
                 embeds: [embed], 
                 components: [row],
-                allowedMentions: { parse: ['roles'] } // ← مهم جداً علشان يشتغل
+                allowedMentions: { parse: ['roles'] }
             });
 
             await interaction.editReply({ content: `✅ Request sent successfully to ${claimWorkChannel}!` });
@@ -182,11 +182,9 @@ const assignCommand = {
                 return interaction.editReply({ content: '❌ User is not a member of this server!' });
             }
             
-            // Add role to user
             await member.roles.add(projectRole);
 
-            // Get user email
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
+            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📢emails' && ch.isTextBased());
             if (!emailsChannel) {
                 return interaction.editReply({ content: '❌ Emails channel not found!' });
             }
@@ -200,7 +198,6 @@ const assignCommand = {
             const lastUserMessage = userMessages.first();
             const userEmail = lastUserMessage.content.trim();
 
-            // ====== Google API Setup ======
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
@@ -220,7 +217,6 @@ const assignCommand = {
 
             const header = rows[0];
             const driveColumnIndex = header.findIndex(col => col && typeof col === "string" && col.trim().toLowerCase() === "v221");
-            console.log("📌 Drive Column Index:", driveColumnIndex);
             if (driveColumnIndex === -1) return interaction.editReply({ content: '❌ V221 column not found!' });
 
             const roleFirstThree = getFirstThreeWords(projectRole.name);
@@ -228,7 +224,6 @@ const assignCommand = {
             if (!projectRow) return interaction.editReply({ content: `❌ Project "${projectRole.name}" not found in spreadsheet!` });
 
             const driveLink = projectRow[driveColumnIndex];
-            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
             if (!driveLink) return interaction.editReply({ content: `❌ Found project row but V221 is empty!` });
 
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
@@ -248,7 +243,6 @@ const assignCommand = {
 
             const targetChannel = findMatchingChannel(projectRole.name);
             if (targetChannel) {
-                // ✅ FIX: Add allowedMentions for user mentions
                 await targetChannel.send({
                     content: `${targetUser} start from ch ${fromChapter}, access granted ✅`,
                     allowedMentions: { parse: ['users'] }
@@ -277,7 +271,7 @@ const updateMembersCommand = {
         try {
             await interaction.deferReply({ ephemeral: true });
             
-            console.log('🔄 Manual update-members triggered by', interaction.user.tag);
+            console.log('📊 Manual update-members triggered by', interaction.user.tag);
             
             const { manualUpdateMembers } = await import('./memberActivityTracker.js');
             await manualUpdateMembers(interaction.client);
@@ -291,6 +285,7 @@ const updateMembersCommand = {
 };
 
 slashBot.slashCommands.set(updateMembersCommand.data.name, updateMembersCommand);
+
 // ====== Handle Interactions ======
 slashBot.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
@@ -331,7 +326,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
+            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📢emails' && ch.isTextBased());
             if (!emailsChannel) {
                 return interaction.editReply({ content: '❌ Emails channel not found!' });
             }
@@ -345,7 +340,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const lastUserMessage = userMessages.first();
             const userEmail = lastUserMessage.content.trim();
 
-            // ====== Google API Setup ======
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
@@ -365,7 +359,6 @@ slashBot.on('interactionCreate', async (interaction) => {
 
             const header = rows[0];
             const driveColumnIndex = header.findIndex(col => col && typeof col === "string" && col.trim().toLowerCase() === "v221");
-            console.log("📌 Drive Column Index:", driveColumnIndex);
             if (driveColumnIndex === -1) return interaction.editReply({ content: '❌ V221 column not found!' });
 
             const roleFirstThree = getFirstThreeWords(role.name);
@@ -373,7 +366,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             if (!projectRow) return interaction.editReply({ content: `❌ Project "${role.name}" not found in spreadsheet!` });
 
             const driveLink = projectRow[driveColumnIndex];
-            console.log("🔍 DRIVE LINK EXTRACTED:", driveLink);
             if (!driveLink) return interaction.editReply({ content: `❌ Found project row but V221 is empty!` });
 
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
@@ -393,7 +385,6 @@ slashBot.on('interactionCreate', async (interaction) => {
 
             const targetChannel = findMatchingChannel(role.name);
             if (targetChannel) {
-                // ✅ FIX: Add allowedMentions for user mentions
                 await targetChannel.send({
                     content: `${acceptingUser} start from ch ${fromChapter}, access granted ✅`,
                     allowedMentions: { parse: ['users'] }
@@ -421,17 +412,16 @@ slashBot.on('interactionCreate', async (interaction) => {
             await interaction.editReply({ content: '❌ Error handling the request!' });
         }
     }
+
     // ====== Handle "All Done" Button for Weeklies ======
     if (interaction.isButton() && interaction.customId.startsWith('weeklies_done_')) {
         console.log(`Weeklies Done button clicked by ${interaction.user.tag}`);
         try {
             await interaction.deferReply();
 
-            // Extract row indices from button ID
             const rowIndicesStr = interaction.customId.replace('weeklies_done_', '');
             const rowIndices = rowIndicesStr.split(',').map(n => parseInt(n));
 
-            // ====== Setup Google Sheets ======
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
@@ -444,7 +434,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = 'PROGRESS';
 
-            // ====== Get Column L Links ======
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: `${sheetName}!L:L`
@@ -453,7 +442,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const columnLData = response.data.values || [];
             const lLinks = [];
 
-            // Get L column values for the specific rows
             for (const rowIndex of rowIndices) {
                 if (rowIndex <= columnLData.length && columnLData[rowIndex - 1]) {
                     const lValue = columnLData[rowIndex - 1][0];
@@ -463,7 +451,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 }
             }
 
-            // ====== Disable Button ======
             const disabledButton = new ButtonBuilder()
                 .setCustomId('weeklies_done_disabled')
                 .setLabel('All Done ✅')
@@ -473,7 +460,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const newRow = new ActionRowBuilder().addComponents(disabledButton);
             await interaction.message.edit({ components: [newRow] });
 
-            // ====== Send Notification ======
             const supervisorMention = '<@&1269706276309569581>';
             let notificationMessage = `${supervisorMention} All ready to upload you, can up them to`;
 
@@ -495,34 +481,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             await interaction.editReply({ content: '❌ Error processing the request!' });
         }
     }
-}
-// ====== /update-members Command ======
-const updateMembersCommand = {
-    data: new SlashCommandBuilder()
-        .setName('update-members')
-        .setDescription('Manually update the Members sheet with current activity'),
-
-    async execute(interaction) {
-        try {
-            await interaction.deferReply({ ephemeral: true });
-            
-            console.log('🔄 Manual update-members triggered by', interaction.user.tag);
-            
-            const { manualUpdateMembers } = await import('./memberActivityTracker.js');
-            await manualUpdateMembers(interaction.client);
-            
-            await interaction.editReply({ content: '✅ Members sheet updated successfully!' });
-        } catch (error) {
-            console.error('❌ Error in /update-members:', error);
-            await interaction.editReply({ content: `❌ Error updating Members sheet: ${error.message}` });
-        }
-    }
-};
-
-slashBot.slashCommands.set(updateMembersCommand.data.name, updateMembersCommand);           
-           
-           
-           );
+});
 
 // ====== Bot Ready ======
 slashBot.once('ready', async () => {
