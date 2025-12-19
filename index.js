@@ -153,13 +153,20 @@ async function checkSheetAndSendMessages() {
 }
 
 // ====== WAIT FOR BOT TO BE READY ======
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log('✅ Main Discord bot is ready!');
     
     // ⭐ START THE WEEKLIES SCHEDULER HERE!
     startWeekliesScheduler(client);
     
-    startMemberTracking(client);          
+    // ⭐ START MEMBER ACTIVITY TRACKING!
+    startMemberTracking(client);
+    
+    // ⭐ RUN INITIAL MEMBER UPDATE
+    console.log('📊 Running initial members update...');
+    const { manualUpdateMembers } = await import('./memberActivityTracker.js');
+    await manualUpdateMembers(client);
+    console.log('✅ Initial members update complete!');
     
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
