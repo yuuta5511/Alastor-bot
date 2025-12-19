@@ -50,12 +50,6 @@ export function startMemberTracking(client) {
     setInterval(async () => {
         await updateMembersSheet(client);
     }, 60 * 60 * 1000); // Every hour
-
-    // Also update on bot ready
-    client.once('ready', async () => {
-        console.log('📊 Running initial members sheet update...');
-        await updateMembersSheet(client);
-    });
 }
 
 async function updateMembersSheet(client) {
