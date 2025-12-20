@@ -184,11 +184,11 @@ const requestCommand = {
             }
 
             const claimWorkChannel = interaction.guild.channels.cache.find(
-                ch => ch.name === '🹠・claim・work' && ch.isTextBased()
+                ch => ch.name === '🏹〢claim・work' && ch.isTextBased()
             );
 
             if (!claimWorkChannel) {
-                return interaction.editReply({ content: '❌ Claim・work channel not found!' });
+                return interaction.editReply({ content: '❌ 🏹〢claim・work channel not found!' });
             }
 
             const embed = new EmbedBuilder()
@@ -271,7 +271,7 @@ const assignCommand = {
             
             await member.roles.add(projectRole);
 
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📧・emails' && ch.isTextBased());
+            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
             if (!emailsChannel) {
                 return interaction.editReply({ content: '❌ Emails channel not found!' });
             }
