@@ -99,7 +99,7 @@ async function handleRegister(interaction) {
         // ====== Get current sheet data ======
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${sheetName}!A:P`
+            range: `${sheetName}!A:Q`
         });
 
         const rows = response.data.values || [];
@@ -155,23 +155,30 @@ async function handleRegister(interaction) {
         // ====== Batch update operations ======
         const batchUpdates = [];
 
+        // Column M: Username
         batchUpdates.push({
             range: `${sheetName}!M${targetRow}`,
             values: [[username]]
         });
 
+        // Column N: Start Date
         batchUpdates.push({
             range: `${sheetName}!N${targetRow}`,
             values: [[fromDate]]
         });
 
+        // Column O: End Date
         batchUpdates.push({
             range: `${sheetName}!O${targetRow}`,
             values: [[toDate]]
         });
 
+        // Column P: Will have formula =O-N (set manually in sheet)
+        // We don't write to P, the formula calculates days remaining
+
+        // Column Q: Reason
         batchUpdates.push({
-            range: `${sheetName}!P${targetRow}`,
+            range: `${sheetName}!Q${targetRow}`,
             values: [[reason]]
         });
 
@@ -195,7 +202,7 @@ async function handleRegister(interaction) {
         console.log(`✅ Hiatus registered for ${username} in row ${targetRow}`);
 
         await interaction.editReply({ 
-            content: `✅ Hiatus registered successfully!\n**From:** ${fromDate}\n**To:** ${toDate}\n**Reason:** ${reason}` 
+            content: `✅ Hiatus registered successfully!\n**From:** ${fromDate}\n**To:** ${toDate}\n**Reason:** ${reason}\n\n⚠️ **Important:** Add the formula \`=O${targetRow}-N${targetRow}\` to cell P${targetRow} in the sheet to calculate days remaining.` 
         });
 
     } catch (error) {
@@ -225,10 +232,10 @@ async function handleState(interaction) {
         const spreadsheetId = process.env.SHEET_ID;
         const sheetName = 'Members';
 
-        // ====== Get hiatus data ======
+        // ====== Get hiatus data (M to Q) ======
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${sheetName}!M:P`
+            range: `${sheetName}!M:Q`
         });
 
         const rows = response.data.values || [];
@@ -246,7 +253,8 @@ async function handleState(interaction) {
                 hiatusData = {
                     startDate: row[1] || 'N/A',
                     endDate: row[2] || 'N/A',
-                    reason: row[3] || 'No reason provided'
+                    daysRemaining: row[3] || 'N/A', // Column P (index 3)
+                    reason: row[4] || 'No reason provided' // Column Q (index 4)
                 };
                 break;
             }
@@ -258,22 +266,14 @@ async function handleState(interaction) {
             });
         }
 
-        // Calculate days remaining
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const endDate = new Date(hiatusData.endDate);
-        endDate.setHours(0, 0, 0, 0);
-        
-        const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
-
         // Create embed
         const embed = new EmbedBuilder()
             .setColor('#FFA500')
-            .setTitle('🏖️ Your Hiatus Status')
+            .setTitle('🖐️ Your Hiatus Status')
             .addFields(
                 { name: '📅 Start Date', value: hiatusData.startDate, inline: true },
                 { name: '📅 End Date', value: hiatusData.endDate, inline: true },
-                { name: '⏳ Days Left', value: daysLeft > 0 ? `${daysLeft} days` : 'Expired', inline: true },
+                { name: '⏳ Days Left', value: hiatusData.daysRemaining.toString(), inline: true },
                 { name: '📝 Reason', value: hiatusData.reason, inline: false }
             )
             .setTimestamp();
