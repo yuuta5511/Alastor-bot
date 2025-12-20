@@ -261,6 +261,7 @@ const assignCommand = {
 
 slashBot.slashCommands.set(assignCommand.data.name, assignCommand);
 slashBot.slashCommands.set(weekliesCommand.data.name, weekliesCommand);
+slashBot.slashCommands.set(hiatusCommand.data.name, hiatusCommand);
 
 // ====== /update-members Command ======
 const updateMembersCommand = {
