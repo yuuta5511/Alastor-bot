@@ -59,7 +59,6 @@ async function findSubfolderByPatterns(drive, parentFolderId, patterns) {
 
         const folders = response.data.files || [];
         
-        // Check each pattern
         for (const pattern of patterns) {
             const found = folders.find(folder => 
                 folder.name.toLowerCase() === pattern.toLowerCase()
@@ -81,7 +80,6 @@ async function findSubfolderByPatterns(drive, parentFolderId, patterns) {
 // ====== Helper Function: Give Drive Access Based on Role ======
 async function giveDriveAccessByRole(drive, mainFolderId, userEmail, roleType) {
     try {
-        // Give viewer access to main folder
         await drive.permissions.create({
             fileId: mainFolderId,
             requestBody: { 
@@ -93,7 +91,6 @@ async function giveDriveAccessByRole(drive, mainFolderId, userEmail, roleType) {
         });
         console.log(`✅ Gave viewer access to main folder`);
 
-        // Determine subfolder patterns based on role
         let subfolderPatterns = [];
         
         if (roleType === 'ED') {
@@ -107,7 +104,6 @@ async function giveDriveAccessByRole(drive, mainFolderId, userEmail, roleType) {
             return { success: true, message: 'Viewer access granted to main folder' };
         }
 
-        // Find the subfolder
         const subfolderId = await findSubfolderByPatterns(drive, mainFolderId, subfolderPatterns);
 
         if (!subfolderId) {
@@ -117,7 +113,6 @@ async function giveDriveAccessByRole(drive, mainFolderId, userEmail, roleType) {
             };
         }
 
-        // Give editor access to the subfolder
         await drive.permissions.create({
             fileId: subfolderId,
             requestBody: { 
@@ -258,10 +253,6 @@ const assignCommand = {
             const targetUser = interaction.options.getUser('user');
             const projectRole = interaction.options.getRole('to');
             const fromChapter = interaction.options.getInteger('from');
-
-            console.log('Target User:', targetUser?.tag);
-            console.log('Project Role:', projectRole?.name);
-            console.log('From Chapter:', fromChapter);
 
             if (!targetUser) {
                 return interaction.editReply({ content: '❌ User not found!' });
@@ -424,7 +415,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            // ====== Get User Email ======
             const emailsChannel = guild.channels.cache.find(ch => ch.name === '📧・emails' && ch.isTextBased());
             if (!emailsChannel) {
                 return interaction.editReply({ content: '❌ Emails channel not found!' });
@@ -439,7 +429,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const lastUserMessage = userMessages.first();
             const userEmail = lastUserMessage.content.trim();
 
-            // ====== Setup Google APIs ======
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
@@ -453,7 +442,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = process.env.SHEET_NAME || 'PROGRESS';
 
-            // ====== Get Drive Link from Sheet ======
             const response = await sheets.spreadsheets.values.get({ 
                 spreadsheetId, 
                 range: `${sheetName}!A:ZZ` 
@@ -497,7 +485,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             }
             const folderId = fileIdMatch[0];
 
-            // ====== Give Drive Access Based on Role Type ======
             const driveResult = await giveDriveAccessByRole(drive, folderId, userEmail, roleType);
             
             if (!driveResult.success) {
@@ -506,7 +493,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // ====== Send Message to Project Channel ======
             const targetChannel = findMatchingChannel(role.name);
             if (targetChannel) {
                 await targetChannel.send({
@@ -515,7 +501,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // ====== Update Button to Disabled ======
             const disabledButton = new ButtonBuilder()
                 .setCustomId('disabled_button')
                 .setLabel('Task Accepted ✅')
@@ -620,7 +605,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const userId = parts[2];
             const rowNumber = parseInt(parts[3]);
 
-            // Verify the user is canceling their own hiatus
             if (interaction.user.id !== userId) {
                 return interaction.reply({ 
                     content: '❌ You can only cancel your own hiatus!',
@@ -628,7 +612,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // Update the button FIRST before doing any async operations
             const disabledButton = new ButtonBuilder()
                 .setCustomId('hiatus_cancelled')
                 .setLabel('Cancelling...')
@@ -642,7 +625,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 .setColor('#FFA500')
                 .setTitle('🖐️ Cancelling Hiatus...');
 
-            // Use interaction.update() to edit the message with the button
             await interaction.update({ 
                 embeds: [updatingEmbed], 
                 components: [newRow] 
@@ -651,7 +633,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const member = interaction.member;
             const username = interaction.user.username;
 
-            // ====== Remove (hiatus) from nickname ======
             try {
                 const currentNick = member.nickname || member.displayName;
                 const newNick = currentNick
@@ -667,7 +648,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 console.error('❌ Error removing hiatus from nickname:', nickError);
             }
 
-            // ====== Setup Google Sheets ======
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
@@ -680,7 +660,6 @@ slashBot.on('interactionCreate', async (interaction) => {
             const spreadsheetId = process.env.SHEET_ID;
             const sheetName = 'Members';
 
-            // ====== Find first empty row in inactive column G ======
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: `${sheetName}!G:G`
@@ -696,7 +675,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 }
             }
 
-            // ====== Move user back to inactive and clear hiatus row (SKIP COLUMN P) ======
             await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId,
                 requestBody: {
@@ -707,12 +685,10 @@ slashBot.on('interactionCreate', async (interaction) => {
                             values: [[username]]
                         },
                         {
-                            // Clear M, N, O (skip P to preserve formula)
                             range: `${sheetName}!M${rowNumber}:O${rowNumber}`,
                             values: [['', '', '']]
                         },
                         {
-                            // Clear Q separately
                             range: `${sheetName}!Q${rowNumber}`,
                             values: [['']]
                         }
@@ -720,7 +696,6 @@ slashBot.on('interactionCreate', async (interaction) => {
                 }
             });
 
-            // ====== Update the message to show completion ======
             const finalButton = new ButtonBuilder()
                 .setCustomId('hiatus_cancelled')
                 .setLabel('Hiatus Cancelled ✅')
@@ -734,20 +709,40 @@ slashBot.on('interactionCreate', async (interaction) => {
                 .setTitle('🖐️ Hiatus Cancelled')
                 .setFooter({ text: 'You have been moved back to inactive members' });
 
-            // Edit the original message again with final status
             await interaction.editReply({ 
                 embeds: [finalEmbed], 
                 components: [finalRow] 
             });
 
             console.log(`✅ Hiatus cancelled for ${username}`);
-            console.log(`⚠️ Column P formula preserved for future use`);
 
         } catch (error) {
             console.error('Error handling cancel hiatus button:', error);
             
-            // Try to send a followUp if update/editReply failed
             try {
                 await interaction.followUp({ 
                     content: `❌ Error cancelling hiatus: ${error.message}`,
-                    ephemeral: true
+                    ephemeral: true 
+                });
+            } catch (followUpError) {
+                console.error('Could not send error message:', followUpError);
+            }
+        }
+    }
+});
+
+// ====== Bot Ready ======
+slashBot.once('ready', async () => {
+    console.log(`✅ Slash Commands Bot is ready as ${slashBot.user.tag}`);
+    await registerCommands();
+});
+
+// ====== Login ======
+const token = process.env.BOT_TOKEN?.trim();
+if (token) {
+    slashBot.login(token)
+        .then(() => console.log('✅ Slash Commands Bot logged in'))
+        .catch(err => console.error('❌ Slash bot login failed:', err));
+}
+
+export default slashBot;
