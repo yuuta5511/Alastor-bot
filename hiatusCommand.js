@@ -66,9 +66,20 @@ async function handleRegister(interaction) {
             return interaction.editReply({ content: '❌ End date must be after start date!' });
         }
 
+        // ⭐ NEW: Check if hiatus period exceeds 7 days
+        const diffTime = Math.abs(endDate - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 7) {
+            return interaction.editReply({ 
+                content: '❌ Your max hiatus period is 7 days, if you need more you have to contact a supervisor with a strong reason' 
+            });
+        }
+
         // ====== Update Nickname ======
         try {
-            const currentNick = member.nickname || member.user.username;
+            // ⭐ CHANGED: Use display name (nickname or global name) instead of username
+            const currentNick = member.nickname || member.displayName;
             const newNick = currentNick.includes('(hiatus)') 
                 ? currentNick 
                 : `${currentNick} (hiatus)`;
@@ -202,7 +213,7 @@ async function handleRegister(interaction) {
         console.log(`✅ Hiatus registered for ${username} in row ${targetRow}`);
 
         await interaction.editReply({ 
-            content: `✅ Hiatus registered successfully!\n**From:** ${fromDate}\n**To:** ${toDate}\n**Reason:** ${reason}` 
+            content: `✅ Hiatus registered successfully!\n**From:** ${fromDate}\n**To:** ${toDate}\n**Duration:** ${diffDays} day(s)\n**Reason:** ${reason}` 
         });
 
     } catch (error) {
