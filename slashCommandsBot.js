@@ -483,6 +483,111 @@ slashBot.on('interactionCreate', async (interaction) => {
             await interaction.editReply({ content: '❌ Error processing the request!' });
         }
     }
+// ====== Handle "Cancel It!" Button for Hiatus ======
+    if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_')) {
+        console.log(`Cancel hiatus button clicked by ${interaction.user.tag}`);
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const parts = interaction.customId.split('_');
+            const userId = parts[2];
+            const rowNumber = parseInt(parts[3]);
+
+            // Verify the user is canceling their own hiatus
+            if (interaction.user.id !== userId) {
+                return interaction.editReply({ content: '❌ You can only cancel your own hiatus!' });
+            }
+
+            const member = interaction.member;
+            const username = interaction.user.username;
+
+            // ====== Remove (hiatus) from nickname ======
+            try {
+                const currentNick = member.nickname || member.user.username;
+                const newNick = currentNick
+                    .replace(/\s*\(hiatus\)\s*/gi, '')
+                    .replace(/\(hiatus\)/gi, '')
+                    .trim();
+                
+                if (newNick && newNick !== currentNick) {
+                    await member.setNickname(newNick === member.user.username ? null : newNick);
+                    console.log(`✅ Removed (hiatus) from nickname`);
+                }
+            } catch (nickError) {
+                console.error('❌ Error removing hiatus from nickname:', nickError);
+            }
+
+            // ====== Setup Google Sheets ======
+            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+            const auth = new google.auth.GoogleAuth({
+                credentials: creds,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets']
+            });
+
+            const authClient = await auth.getClient();
+            const sheets = google.sheets({ version: 'v4', auth: authClient });
+
+            const spreadsheetId = process.env.SHEET_ID;
+            const sheetName = 'Members';
+
+            // ====== Find first empty row in inactive column G ======
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: `${sheetName}!G:G`
+            });
+
+            const columnGData = response.data.values || [];
+            let targetRow = 3;
+            for (let i = 2; i < columnGData.length + 10; i++) {
+                if (!columnGData[i] || !columnGData[i][0] || columnGData[i][0].trim() === '') {
+                    targetRow = i + 1;
+                    break;
+                }
+            }
+
+            // ====== Move user back to inactive and clear hiatus row ======
+            await sheets.spreadsheets.values.batchUpdate({
+                spreadsheetId,
+                requestBody: {
+                    valueInputOption: 'RAW',
+                    data: [
+                        {
+                            range: `${sheetName}!G${targetRow}`,
+                            values: [[username]]
+                        },
+                        {
+                            range: `${sheetName}!M${rowNumber}:P${rowNumber}`,
+                            values: [['', '', '', '']]
+                        }
+                    ]
+                }
+            });
+
+            // ====== Disable the button ======
+            const disabledButton = new ButtonBuilder()
+                .setCustomId('hiatus_cancelled')
+                .setLabel('Hiatus Cancelled ✅')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true);
+
+            const newRow = new ActionRowBuilder().addComponents(disabledButton);
+            
+            const originalEmbed = interaction.message.embeds[0];
+            const updatedEmbed = EmbedBuilder.from(originalEmbed)
+                .setColor('#808080')
+                .setTitle('🏖️ Hiatus Cancelled');
+
+            await interaction.message.edit({ embeds: [updatedEmbed], components: [newRow] });
+
+            await interaction.editReply({ content: '✅ Your hiatus has been cancelled! You have been moved back to inactive members.' });
+
+            console.log(`✅ Hiatus cancelled for ${username}`);
+
+        } catch (error) {
+            console.error('Error handling cancel hiatus button:', error);
+            await interaction.editReply({ content: `❌ Error cancelling hiatus: ${error.message}` });
+        }
+    }  
 });
 
 // ====== Bot Ready ======
