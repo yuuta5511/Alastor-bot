@@ -202,7 +202,7 @@ async function handleRegister(interaction) {
         console.log(`✅ Hiatus registered for ${username} in row ${targetRow}`);
 
         await interaction.editReply({ 
-            content: `✅ Hiatus registered successfully!\n**From:** ${fromDate}\n**To:** ${toDate}\n**Reason:** ${reason}\n\n⚠️ **Important:** Add the formula \`=O${targetRow}-N${targetRow}\` to cell P${targetRow} in the sheet to calculate days remaining.` 
+            content: `✅ Hiatus registered successfully!\n**From:** ${fromDate}\n**To:** ${toDate}\n**Reason:** ${reason}` 
         });
 
     } catch (error) {
