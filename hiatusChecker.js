@@ -39,10 +39,6 @@ async function checkHiatusExpiration(client) {
         });
 
         const rows = response.data.values || [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const updatesToMake = [];
         const usersToNotify = [];
 
         // Check each hiatus entry (starting from row 3, index 2)
@@ -53,26 +49,24 @@ async function checkHiatusExpiration(client) {
             const username = row[0]; // Column M
             const startDate = row[1]; // Column N
             const endDate = row[2]; // Column O
-            const daysRemaining = parseInt(row[3]) || 0; // Column P
+            const daysRemaining = row[3]; // Column P (formula result)
             const reason = row[4]; // Column Q
 
-            if (!endDate) continue;
+            // Skip if no username or end date
+            if (!username || !endDate) continue;
 
-            // Calculate new days remaining
-            const end = new Date(endDate);
-            end.setHours(0, 0, 0, 0);
-            const newDaysRemaining = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-
-            // Update days remaining if it changed
-            if (newDaysRemaining !== daysRemaining) {
-                updatesToMake.push({
-                    range: `${sheetName}!P${i + 1}`,
-                    values: [[newDaysRemaining]]
-                });
+            // Parse days remaining from column P
+            let daysLeft;
+            if (typeof daysRemaining === 'number') {
+                daysLeft = daysRemaining;
+            } else if (typeof daysRemaining === 'string') {
+                daysLeft = parseInt(daysRemaining);
+            } else {
+                continue; // Skip if days remaining is not set
             }
 
             // Check if hiatus has ended (days remaining is 0 or negative)
-            if (newDaysRemaining <= 0) {
+            if (daysLeft <= 0) {
                 const notificationKey = `${username}_${endDate}`;
                 
                 // Only notify if we haven't already notified for this hiatus
@@ -84,18 +78,6 @@ async function checkHiatusExpiration(client) {
                     notifiedUsers.add(notificationKey);
                 }
             }
-        }
-
-        // ====== Update days remaining ======
-        if (updatesToMake.length > 0) {
-            await sheets.spreadsheets.values.batchUpdate({
-                spreadsheetId,
-                requestBody: {
-                    valueInputOption: 'RAW',
-                    data: updatesToMake
-                }
-            });
-            console.log(`📊 Updated ${updatesToMake.length} hiatus day counters`);
         }
 
         // ====== Process expired hiatus ======
@@ -122,7 +104,7 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
         );
 
         if (!hiatusChannel) {
-            console.error('❌ Hiatus notice channel not found!');
+            console.error('❌ Hiatus notice channel (📝〢hiatus・notice) not found!');
             return;
         }
 
@@ -144,11 +126,12 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
             
             try {
                 await member.setNickname(newNick || null);
+                console.log(`✅ Removed (hiatus) from ${username}'s nickname`);
             } catch (nickError) {
                 console.error('Error removing hiatus from nickname:', nickError);
             }
 
-            // Send notification
+            // Send notification with mention
             await hiatusChannel.send({
                 content: `${member} ur hiatus is done`,
                 allowedMentions: { parse: ['users'] }
@@ -161,30 +144,24 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
             });
         }
 
-        // ====== Move user back to inactive section ======
-        // Get the user's role from the Members sheet to determine which column
-        const allDataResponse = await sheets.spreadsheets.values.get({
+        // ====== Find first empty row in inactive column G ======
+        const inactiveResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${sheetName}!A:Q`
+            range: `${sheetName}!G:G`
         });
 
-        const allRows = allDataResponse.data.values || [];
+        const columnGData = inactiveResponse.data.values || [];
+        let targetRow = 3; // Start from row 3
         
-        // Determine which role the user should be in
-        // We'll put them in the first inactive column (G) by default
-        // You can modify this logic based on your needs
-        
-        // Find first empty row in column G (inactive section)
-        let targetRow = 3;
-        for (let i = 2; i < allRows.length + 10; i++) {
-            const colGValue = allRows[i] ? allRows[i][6] : ''; // Column G (index 6)
-            if (!colGValue || colGValue.trim() === '') {
+        for (let i = 2; i < columnGData.length + 10; i++) {
+            const cellValue = columnGData[i] ? columnGData[i][0] : '';
+            if (!cellValue || cellValue.trim() === '') {
                 targetRow = i + 1;
                 break;
             }
         }
 
-        // Batch update: Move to inactive and clear hiatus row
+        // ====== Move user back to inactive and clear hiatus row ======
         await sheets.spreadsheets.values.batchUpdate({
             spreadsheetId,
             requestBody: {
@@ -196,13 +173,13 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
                     },
                     {
                         range: `${sheetName}!M${rowNumber}:Q${rowNumber}`,
-                        values: [['', '', '', '', '']] // Clear the hiatus row
+                        values: [['', '', '', '', '']] // Clear the entire hiatus row
                     }
                 ]
             }
         });
 
-        console.log(`✅ Moved ${username} back to inactive section`);
+        console.log(`✅ Moved ${username} back to inactive section (row ${targetRow})`);
 
     } catch (error) {
         console.error(`❌ Error processing expired hiatus for ${username}:`, error);
