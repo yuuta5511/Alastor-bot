@@ -415,7 +415,7 @@ slashBot.on('interactionCreate', async (interaction) => {
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📧・emails' && ch.isTextBased());
+            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
             if (!emailsChannel) {
                 return interaction.editReply({ content: '❌ Emails channel not found!' });
             }
