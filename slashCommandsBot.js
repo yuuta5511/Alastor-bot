@@ -48,7 +48,7 @@ function findMatchingChannel(roleName) {
     return found;
 }
 
-// ====== /request Command ======
+// ====== /request Command with Drive Access ======
 const requestCommand = {
     data: new SlashCommandBuilder()
         .setName('request')
@@ -94,7 +94,7 @@ const requestCommand = {
             }
 
             const claimWorkChannel = interaction.guild.channels.cache.find(
-                ch => ch.name === '🏹〢claim・work' && ch.isTextBased()
+                ch => ch.name === '🹠・claim・work' && ch.isTextBased()
             );
 
             if (!claimWorkChannel) {
@@ -134,7 +134,103 @@ const requestCommand = {
         }
     }
 };
-slashBot.slashCommands.set(requestCommand.data.name, requestCommand);
+
+// ====== Helper Function: Find Subfolder by Name Patterns ======
+async function findSubfolderByPatterns(drive, parentFolderId, patterns) {
+    try {
+        const response = await drive.files.list({
+            q: `'${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+            fields: 'files(id, name)',
+            spaces: 'drive'
+        });
+
+        const folders = response.data.files || [];
+        
+        // Check each pattern
+        for (const pattern of patterns) {
+            const found = folders.find(folder => 
+                folder.name.toLowerCase() === pattern.toLowerCase()
+            );
+            if (found) {
+                console.log(`✅ Found subfolder: ${found.name} (${found.id})`);
+                return found.id;
+            }
+        }
+
+        console.log(`⚠️ No subfolder found matching patterns: ${patterns.join(', ')}`);
+        return null;
+    } catch (error) {
+        console.error('Error searching for subfolder:', error);
+        return null;
+    }
+}
+
+// ====== Helper Function: Give Drive Access Based on Role ======
+async function giveDriveAccessByRole(drive, mainFolderId, userEmail, roleType) {
+    try {
+        // Give viewer access to main folder
+        await drive.permissions.create({
+            fileId: mainFolderId,
+            requestBody: { 
+                role: 'reader', 
+                type: 'user', 
+                emailAddress: userEmail 
+            },
+            sendNotificationEmail: false,
+        });
+        console.log(`✅ Gave viewer access to main folder`);
+
+        // Determine subfolder patterns based on role
+        let subfolderPatterns = [];
+        
+        if (roleType === 'ED') {
+            subfolderPatterns = ['ed', 'ED', 'ts', 'TS', 'Ts', 'Ed'];
+        } else if (['KTL', 'CTL', 'JTL', 'PR'].includes(roleType)) {
+            subfolderPatterns = ['tl', 'ktl', 'tlpr', 'ktl pr', 'tl/pr', 'tl&pr', 'TL & PR', 'ctl', 'jtl'];
+        }
+
+        if (subfolderPatterns.length === 0) {
+            console.log(`⚠️ No subfolder patterns defined for role: ${roleType}`);
+            return { success: true, message: 'Viewer access granted to main folder' };
+        }
+
+        // Find the subfolder
+        const subfolderId = await findSubfolderByPatterns(drive, mainFolderId, subfolderPatterns);
+
+        if (!subfolderId) {
+            return { 
+                success: true, 
+                message: `Viewer access granted to main folder (no matching subfolder found for ${roleType})` 
+            };
+        }
+
+        // Give editor access to the subfolder
+        await drive.permissions.create({
+            fileId: subfolderId,
+            requestBody: { 
+                role: 'writer', 
+                type: 'user', 
+                emailAddress: userEmail 
+            },
+            sendNotificationEmail: false,
+        });
+        console.log(`✅ Gave editor access to subfolder`);
+
+        return { 
+            success: true, 
+            message: `Viewer access to main folder + Editor access to ${roleType} subfolder` 
+        };
+
+    } catch (error) {
+        console.error('Error giving drive access:', error);
+        return { 
+            success: false, 
+            message: `Error: ${error.message}` 
+        };
+    }
+}
+
+
 
 // ====== /assign Command ======
 const assignCommand = {
@@ -289,131 +385,148 @@ const updateMembersCommand = {
 slashBot.slashCommands.set(updateMembersCommand.data.name, updateMembersCommand);
 
 // ====== Handle Interactions ======
-slashBot.on('interactionCreate', async (interaction) => {
-    if (interaction.isChatInputCommand()) {
-        const command = slashBot.slashCommands.get(interaction.commandName);
-        if (!command) return;
+// ====== Updated Accept Request Button Handler ======
+// Add this to the button interaction handler in slashCommandsBot.js
+if (interaction.isButton() && interaction.customId.startsWith('accept_request_')) {
+    console.log(`Button clicked: ${interaction.customId} by ${interaction.user.tag}`);
+    try {
+        await interaction.deferReply({ ephemeral: true });
 
-        try {
-            await command.execute(interaction);
-        } catch (error) {
-            console.error('Command execution error:', error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: '❌ An error occurred while executing the command!', ephemeral: true });
-            } else {
-                await interaction.reply({ content: '❌ An error occurred while executing the command!', ephemeral: true });
-            }
+        const parts = interaction.customId.split('_');
+        const requesterId = parts[2];
+        const roleId = parts[3];
+        const fromChapter = parts[4];
+        const roleType = parts[5];
+
+        const acceptingUser = interaction.user;
+        const guild = interaction.guild;
+
+        const role = guild.roles.cache.get(roleId);
+        if (!role) {
+            return interaction.editReply({ content: '❌ Role not found!' });
         }
-    }
 
-    if (interaction.isButton() && interaction.customId.startsWith('accept_request_')) {
-        console.log(`Button clicked: ${interaction.customId} by ${interaction.user.tag}`);
-        try {
-            await interaction.deferReply({ ephemeral: true });
+        const member = await guild.members.fetch(acceptingUser.id);
+        await member.roles.add(role);
 
-            const parts = interaction.customId.split('_');
-            const requesterId = parts[2];
-            const roleId = parts[3];
-            const fromChapter = parts[4];
-            const roleType = parts[5];
+        // ====== Get User Email ======
+        const emailsChannel = guild.channels.cache.find(ch => ch.name === '📧・emails' && ch.isTextBased());
+        if (!emailsChannel) {
+            return interaction.editReply({ content: '❌ Emails channel not found!' });
+        }
 
-            const acceptingUser = interaction.user;
-            const guild = interaction.guild;
+        const messages = await emailsChannel.messages.fetch({ limit: 100 });
+        const userMessages = messages.filter(msg => msg.author.id === acceptingUser.id);
+        if (userMessages.size === 0) {
+            return interaction.editReply({ content: '❌ No previous email found in emails channel!' });
+        }
 
-            const role = guild.roles.cache.get(roleId);
-            if (!role) {
-                return interaction.editReply({ content: '❌ Role not found!' });
-            }
+        const lastUserMessage = userMessages.first();
+        const userEmail = lastUserMessage.content.trim();
 
-            const member = await guild.members.fetch(acceptingUser.id);
-            await member.roles.add(role);
+        // ====== Setup Google APIs ======
+        const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        const auth = new google.auth.GoogleAuth({
+            credentials: creds,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+        });
 
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
-            if (!emailsChannel) {
-                return interaction.editReply({ content: '❌ Emails channel not found!' });
-            }
+        const authClient = await auth.getClient();
+        const sheets = google.sheets({ version: 'v4', auth: authClient });
+        const drive = google.drive({ version: 'v3', auth: authClient });
 
-            const messages = await emailsChannel.messages.fetch({ limit: 100 });
-            const userMessages = messages.filter(msg => msg.author.id === acceptingUser.id);
-            if (userMessages.size === 0) {
-                return interaction.editReply({ content: '❌ No previous email found in emails channel!' });
-            }
+        const spreadsheetId = process.env.SHEET_ID;
+        const sheetName = process.env.SHEET_NAME || 'PROGRESS';
 
-            const lastUserMessage = userMessages.first();
-            const userEmail = lastUserMessage.content.trim();
+        // ====== Get Drive Link from Sheet ======
+        const response = await sheets.spreadsheets.values.get({ 
+            spreadsheetId, 
+            range: `${sheetName}!A:ZZ` 
+        });
+        
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return interaction.editReply({ content: '❌ Spreadsheet is empty!' });
+        }
 
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+        const header = rows[0];
+        const driveColumnIndex = header.findIndex(col => 
+            col && typeof col === "string" && col.trim().toLowerCase() === "v221"
+        );
+        
+        if (driveColumnIndex === -1) {
+            return interaction.editReply({ content: '❌ V221 column not found!' });
+        }
+
+        const roleFirstThree = getFirstThreeWords(role.name);
+        const projectRow = rows.find(row => 
+            row[0] && getFirstThreeWords(row[0]) === roleFirstThree
+        );
+        
+        if (!projectRow) {
+            return interaction.editReply({ 
+                content: `❌ Project "${role.name}" not found in spreadsheet!` 
             });
-
-            const authClient = await auth.getClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
-            const drive = google.drive({ version: 'v3', auth: authClient });
-
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheetName = process.env.SHEET_NAME || 'PROGRESS';
-
-            const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${sheetName}!A:ZZ` });
-            const rows = response.data.values;
-            if (!rows || rows.length === 0) return interaction.editReply({ content: '❌ Spreadsheet is empty!' });
-
-            const header = rows[0];
-            const driveColumnIndex = header.findIndex(col => col && typeof col === "string" && col.trim().toLowerCase() === "v221");
-            if (driveColumnIndex === -1) return interaction.editReply({ content: '❌ V221 column not found!' });
-
-            const roleFirstThree = getFirstThreeWords(role.name);
-            const projectRow = rows.find(row => row[0] && getFirstThreeWords(row[0]) === roleFirstThree);
-            if (!projectRow) return interaction.editReply({ content: `❌ Project "${role.name}" not found in spreadsheet!` });
-
-            const driveLink = projectRow[driveColumnIndex];
-            if (!driveLink) return interaction.editReply({ content: `❌ Found project row but V221 is empty!` });
-
-            const fileIdMatch = driveLink.match(/[-\w]{25,}/);
-            if (!fileIdMatch) return interaction.editReply({ content: '❌ Invalid Drive link!' });
-            const fileId = fileIdMatch[0];
-
-            try {
-                await drive.permissions.create({
-                    fileId,
-                    requestBody: { role: 'writer', type: 'user', emailAddress: userEmail },
-                    sendNotificationEmail: false,
-                });
-            } catch (driveError) {
-                console.error('Drive permission error:', driveError);
-                return interaction.editReply({ content: '❌ Error giving Drive permission!' });
-            }
-
-            const targetChannel = findMatchingChannel(role.name);
-            if (targetChannel) {
-                await targetChannel.send({
-                    content: `${acceptingUser} start from ch ${fromChapter}, access granted ✅`,
-                    allowedMentions: { parse: ['users'] }
-                });
-            }
-
-            const disabledButton = new ButtonBuilder()
-                .setCustomId('disabled_button')
-                .setLabel('Task Accepted ✅')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(true);
-
-            const newRow = new ActionRowBuilder().addComponents(disabledButton);
-            const originalEmbed = interaction.message.embeds[0];
-            const updatedEmbed = EmbedBuilder.from(originalEmbed)
-                .setColor('#808080')
-                .addFields({ name: '✅ Accepted By', value: `${acceptingUser}`, inline: true });
-
-            await interaction.message.edit({ embeds: [updatedEmbed], components: [newRow] });
-
-            await interaction.editReply({ content: `✅ Done! You received role ${role.name} and Drive access.` });
-
-        } catch (error) {
-            console.error('Error handling button:', error);
-            await interaction.editReply({ content: '❌ Error handling the request!' });
         }
+
+        const driveLink = projectRow[driveColumnIndex];
+        if (!driveLink) {
+            return interaction.editReply({ 
+                content: `❌ Found project row but V221 is empty!` 
+            });
+        }
+
+        const fileIdMatch = driveLink.match(/[-\w]{25,}/);
+        if (!fileIdMatch) {
+            return interaction.editReply({ content: '❌ Invalid Drive link!' });
+        }
+        const folderId = fileIdMatch[0];
+
+        // ====== Give Drive Access Based on Role Type ======
+        const driveResult = await giveDriveAccessByRole(drive, folderId, userEmail, roleType);
+        
+        if (!driveResult.success) {
+            return interaction.editReply({ 
+                content: `❌ Error giving Drive permission: ${driveResult.message}` 
+            });
+        }
+
+        // ====== Send Message to Project Channel ======
+        const targetChannel = findMatchingChannel(role.name);
+        if (targetChannel) {
+            await targetChannel.send({
+                content: `${acceptingUser} start from ch ${fromChapter}, access granted ✅`,
+                allowedMentions: { parse: ['users'] }
+            });
+        }
+
+        // ====== Update Button to Disabled ======
+        const disabledButton = new ButtonBuilder()
+            .setCustomId('disabled_button')
+            .setLabel('Task Accepted ✅')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true);
+
+        const newRow = new ActionRowBuilder().addComponents(disabledButton);
+        const originalEmbed = interaction.message.embeds[0];
+        const updatedEmbed = EmbedBuilder.from(originalEmbed)
+            .setColor('#808080')
+            .addFields({ name: '✅ Accepted By', value: `${acceptingUser}`, inline: true });
+
+        await interaction.message.edit({ 
+            embeds: [updatedEmbed], 
+            components: [newRow] 
+        });
+
+        await interaction.editReply({ 
+            content: `✅ Done! You received role ${role.name} and Drive access.\n📁 ${driveResult.message}` 
+        });
+
+    } catch (error) {
+        console.error('Error handling button:', error);
+        await interaction.editReply({ content: '❌ Error handling the request!' });
     }
+}
 
     // ====== Handle "All Done" Button for Weeklies ======
     if (interaction.isButton() && interaction.customId.startsWith('weeklies_done_')) {
