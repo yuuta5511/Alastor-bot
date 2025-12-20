@@ -63,7 +63,22 @@ const commands = [
                 )),
     new SlashCommandBuilder()
         .setName('update-members')
-        .setDescription('Manually update the Members sheet with current activity')
+        .setDescription('Manually update the Members sheet with current activity'),
+    new SlashCommandBuilder()
+        .setName('hiatus')
+        .setDescription('Register a hiatus period')
+        .addStringOption(option =>
+            option.setName('from')
+                .setDescription('Start date (YYYY-MM-DD)')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('to')
+                .setDescription('End date (YYYY-MM-DD)')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('reason')
+                .setDescription('Reason for hiatus')
+                .setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);
