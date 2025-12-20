@@ -69,6 +69,24 @@ async function updateMembersSheet(client) {
         const spreadsheetId = process.env.SHEET_ID;
         const sheetName = 'Members';
 
+        // ====== Get hiatus list (Column M) to exclude from tracking ======
+        const hiatusResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${sheetName}!M:M`
+        });
+
+        const hiatusRows = hiatusResponse.data.values || [];
+        const hiatusUsernames = new Set();
+        
+        // Start from row 3 (index 2) to skip headers
+        for (let i = 2; i < hiatusRows.length; i++) {
+            if (hiatusRows[i] && hiatusRows[i][0]) {
+                hiatusUsernames.add(hiatusRows[i][0]);
+            }
+        }
+
+        console.log(`📋 Found ${hiatusUsernames.size} users on hiatus - excluding from tracking`);
+
         // Get all guilds (servers) the bot is in
         const guild = client.guilds.cache.first();
         if (!guild) {
@@ -93,6 +111,14 @@ async function updateMembersSheet(client) {
             // Skip bots
             if (member.user.bot) continue;
 
+            const username = member.user.username;
+
+            // ⭐ SKIP IF USER IS ON HIATUS ⭐
+            if (hiatusUsernames.has(username)) {
+                console.log(`⏭️ Skipping ${username} - on hiatus`);
+                continue;
+            }
+
             // Check which role they have (check in order of priority)
             let memberRole = null;
             for (const [roleName, roleId] of Object.entries(ROLE_IDS)) {
@@ -112,7 +138,6 @@ async function updateMembersSheet(client) {
             const isActive = lastMessageDate && lastMessageDate > fourDaysAgo;
 
             // Add to appropriate category
-            const username = member.user.username;
             if (isActive) {
                 categorized.active[memberRole].push(username);
             } else {
@@ -129,7 +154,7 @@ async function updateMembersSheet(client) {
 
         const maxRows = sheetData.data.sheets[0].properties.gridProperties.rowCount;
 
-        // Clear from row 3 to end
+        // Clear from row 3 to end (only columns A-K, not hiatus columns)
         await sheets.spreadsheets.values.clear({
             spreadsheetId,
             range: `${sheetName}!A3:K${maxRows}`
@@ -176,6 +201,7 @@ async function updateMembersSheet(client) {
         console.log('✅ Members sheet updated successfully!');
         console.log(`📊 Active members: ${Object.values(categorized.active).flat().length}`);
         console.log(`📊 Inactive members: ${Object.values(categorized.inactive).flat().length}`);
+        console.log(`📊 On hiatus: ${hiatusUsernames.size}`);
 
     } catch (error) {
         console.error('❌ Error updating Members sheet:', error);
