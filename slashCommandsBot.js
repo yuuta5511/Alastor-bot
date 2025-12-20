@@ -483,10 +483,8 @@ slashBot.on('interactionCreate', async (interaction) => {
             await interaction.editReply({ content: '❌ Error processing the request!' });
         }
     }
-// This is the corrected cancel_hiatus button handler for slashCommandsBot.js
-// Replace the existing cancel_hiatus handler with this code:
 
-// ====== Handle "Cancel It!" Button for Hiatus ======
+// ====== Handle "Cancel It!" Button for Hiatus (PRESERVES COLUMN P) ======
 if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_')) {
     console.log(`Cancel hiatus button clicked by ${interaction.user.tag}`);
     try {
@@ -549,7 +547,7 @@ if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_'))
             }
         }
 
-        // ====== Move user back to inactive and clear hiatus row ======
+        // ====== Move user back to inactive and clear hiatus row (SKIP COLUMN P) ======
         await sheets.spreadsheets.values.batchUpdate({
             spreadsheetId,
             requestBody: {
@@ -560,8 +558,14 @@ if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_'))
                         values: [[username]]
                     },
                     {
-                        range: `${sheetName}!M${rowNumber}:Q${rowNumber}`,
-                        values: [['', '', '', '', '']] // Clear M, N, O, P, Q
+                        // Clear M, N, O (skip P to preserve formula)
+                        range: `${sheetName}!M${rowNumber}:O${rowNumber}`,
+                        values: [['', '', '']]
+                    },
+                    {
+                        // Clear Q separately
+                        range: `${sheetName}!Q${rowNumber}`,
+                        values: [['']]
                     }
                 ]
             }
@@ -586,6 +590,7 @@ if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_'))
         await interaction.editReply({ content: '✅ Your hiatus has been cancelled! You have been moved back to inactive members.' });
 
         console.log(`✅ Hiatus cancelled for ${username}`);
+        console.log(`⚠️ Column P formula preserved for future use`);
 
     } catch (error) {
         console.error('Error handling cancel hiatus button:', error);
