@@ -484,20 +484,42 @@ slashBot.on('interactionCreate', async (interaction) => {
         }
     }
 
-// ====== Handle "Cancel It!" Button for Hiatus (PRESERVES COLUMN P) ======
+
+// ====== Handle "Cancel It!" Button for Hiatus (FIXED FOR EPHEMERAL) ======
 if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_')) {
     console.log(`Cancel hiatus button clicked by ${interaction.user.tag}`);
     try {
-        await interaction.deferReply({ ephemeral: true });
-
         const parts = interaction.customId.split('_');
         const userId = parts[2];
         const rowNumber = parseInt(parts[3]);
 
         // Verify the user is canceling their own hiatus
         if (interaction.user.id !== userId) {
-            return interaction.editReply({ content: '❌ You can only cancel your own hiatus!' });
+            return interaction.reply({ 
+                content: '❌ You can only cancel your own hiatus!',
+                ephemeral: true 
+            });
         }
+
+        // Update the button FIRST before doing any async operations
+        const disabledButton = new ButtonBuilder()
+            .setCustomId('hiatus_cancelled')
+            .setLabel('Cancelling...')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true);
+
+        const newRow = new ActionRowBuilder().addComponents(disabledButton);
+        
+        const originalEmbed = interaction.message.embeds[0];
+        const updatingEmbed = EmbedBuilder.from(originalEmbed)
+            .setColor('#FFA500')
+            .setTitle('🖐️ Cancelling Hiatus...');
+
+        // Use interaction.update() to edit the message with the button
+        await interaction.update({ 
+            embeds: [updatingEmbed], 
+            components: [newRow] 
+        });
 
         const member = interaction.member;
         const username = interaction.user.username;
@@ -571,30 +593,41 @@ if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_'))
             }
         });
 
-        // ====== Disable the button ======
-        const disabledButton = new ButtonBuilder()
+        // ====== Update the message to show completion ======
+        const finalButton = new ButtonBuilder()
             .setCustomId('hiatus_cancelled')
             .setLabel('Hiatus Cancelled ✅')
-            .setStyle(ButtonStyle.Secondary)
+            .setStyle(ButtonStyle.Success)
             .setDisabled(true);
 
-        const newRow = new ActionRowBuilder().addComponents(disabledButton);
+        const finalRow = new ActionRowBuilder().addComponents(finalButton);
         
-        const originalEmbed = interaction.message.embeds[0];
-        const updatedEmbed = EmbedBuilder.from(originalEmbed)
+        const finalEmbed = EmbedBuilder.from(originalEmbed)
             .setColor('#808080')
-            .setTitle('🖐️ Hiatus Cancelled');
+            .setTitle('🖐️ Hiatus Cancelled')
+            .setFooter({ text: 'You have been moved back to inactive members' });
 
-        await interaction.message.edit({ embeds: [updatedEmbed], components: [newRow] });
-
-        await interaction.editReply({ content: '✅ Your hiatus has been cancelled! You have been moved back to inactive members.' });
+        // Edit the original message again with final status
+        await interaction.editReply({ 
+            embeds: [finalEmbed], 
+            components: [finalRow] 
+        });
 
         console.log(`✅ Hiatus cancelled for ${username}`);
         console.log(`⚠️ Column P formula preserved for future use`);
 
     } catch (error) {
         console.error('Error handling cancel hiatus button:', error);
-        await interaction.editReply({ content: `❌ Error cancelling hiatus: ${error.message}` });
+        
+        // Try to send a followUp if update/editReply failed
+        try {
+            await interaction.followUp({ 
+                content: `❌ Error cancelling hiatus: ${error.message}`,
+                ephemeral: true 
+            });
+        } catch (followUpError) {
+            console.error('Could not send error message:', followUpError);
+        }
     }
 }
        });
