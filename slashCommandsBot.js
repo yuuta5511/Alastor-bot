@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, Collection, SlashCommandBuilder, EmbedBuilde
 import { google } from "googleapis";
 import { registerCommands } from './registerCommands.js';
 import weekliesCommand from './weekliesCommand.js';
+import hiatusCommand from './hiatusCommand.js';
 
 // ====== DISCORD BOT for Slash Commands ======
 const slashBot = new Client({
