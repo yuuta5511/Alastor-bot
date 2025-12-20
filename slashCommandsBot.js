@@ -94,7 +94,7 @@ const requestCommand = {
             }
 
             const claimWorkChannel = interaction.guild.channels.cache.find(
-                ch => ch.name === '🹢claim・work' && ch.isTextBased()
+                ch => ch.name === '🏹〢claim・work' && ch.isTextBased()
             );
 
             if (!claimWorkChannel) {
