@@ -11,11 +11,11 @@ const hiatusCommand = {
                 .setDescription('Register a new hiatus period')
                 .addStringOption(option =>
                     option.setName('from')
-                        .setDescription('Start date (YYYY-MM-DD)')
+                        .setDescription('Start date (YYYY/MM/DD)')
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('to')
-                        .setDescription('End date (YYYY-MM-DD)')
+                        .setDescription('End date (YYYY/MM/DD)')
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('reason')
@@ -49,14 +49,14 @@ async function handleRegister(interaction) {
         const member = interaction.member;
 
         // Validate date format
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const dateRegex = /^\d{4}\/\d{2}\/\d{2}$/;
         if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
-            return interaction.editReply({ content: '❌ Invalid date format! Use YYYY-MM-DD (e.g., 2024-12-25)' });
+            return interaction.editReply({ content: '❌ Invalid date format! Use YYYY/MM/DD (e.g., 2024/12/25)' });
         }
 
-        // Validate dates are valid
-        const startDate = new Date(fromDate);
-        const endDate = new Date(toDate);
+        // Validate dates are valid (convert from YYYY/MM/DD to YYYY-MM-DD for Date parsing)
+        const startDate = new Date(fromDate.replace(/\//g, '-'));
+        const endDate = new Date(toDate.replace(/\//g, '-'));
         
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             return interaction.editReply({ content: '❌ Invalid dates provided!' });
