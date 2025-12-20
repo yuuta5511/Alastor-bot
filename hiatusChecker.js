@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: hiatusChecker.js (FIXED - Preserves Column P Formula)
+// ============================================================
+
 import { google } from "googleapis";
 
 // Store last checked state to avoid duplicate notifications
@@ -161,7 +165,7 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
             }
         }
 
-        // ====== Move user back to inactive and clear hiatus row ======
+        // ====== Move user back to inactive and clear hiatus row (SKIP COLUMN P) ======
         await sheets.spreadsheets.values.batchUpdate({
             spreadsheetId,
             requestBody: {
@@ -172,14 +176,21 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
                         values: [[username]]
                     },
                     {
-                        range: `${sheetName}!M${rowNumber}:Q${rowNumber}`,
-                        values: [['', '', '', '', '']] // Clear the entire hiatus row
+                        // Clear M, N, O (skip P to preserve formula)
+                        range: `${sheetName}!M${rowNumber}:O${rowNumber}`,
+                        values: [['', '', '']]
+                    },
+                    {
+                        // Clear Q separately
+                        range: `${sheetName}!Q${rowNumber}`,
+                        values: [['']]
                     }
                 ]
             }
         });
 
         console.log(`✅ Moved ${username} back to inactive section (row ${targetRow})`);
+        console.log(`⚠️ Column P formula preserved for future use`);
 
     } catch (error) {
         console.error(`❌ Error processing expired hiatus for ${username}:`, error);
