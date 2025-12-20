@@ -1,3 +1,4 @@
+
 import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
 import { google } from "googleapis";
@@ -7,8 +8,11 @@ import './slashCommandsBot.js';
 import './sheetUpdateListener.js';
 import { startWeekliesScheduler } from './autoWeeklies.js';
 import { startMemberTracking } from './memberActivityTracker.js';
+import { startHiatusChecker } from './hiatusChecker.js'; // ⭐ ADD THIS LINE
+
 const app = express();
 app.use(express.json());
+
 
 // ====== DISCORD BOT (للوظيفة الأولى فقط) ======
 const client = new Client({
@@ -161,6 +165,9 @@ client.once('ready', async () => {
     
     // ⭐ START MEMBER ACTIVITY TRACKING!
     startMemberTracking(client);
+    
+    // ⭐ START HIATUS CHECKER! ⭐ ADD THIS LINE
+    startHiatusChecker(client);
     
     // ⭐ RUN INITIAL MEMBER UPDATE
     console.log('📊 Running initial members update...');
