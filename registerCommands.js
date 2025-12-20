@@ -66,19 +66,27 @@ const commands = [
         .setDescription('Manually update the Members sheet with current activity'),
     new SlashCommandBuilder()
         .setName('hiatus')
-        .setDescription('Register a hiatus period')
-        .addStringOption(option =>
-            option.setName('from')
-                .setDescription('Start date (YYYY-MM-DD)')
-                .setRequired(true))
-        .addStringOption(option =>
-            option.setName('to')
-                .setDescription('End date (YYYY-MM-DD)')
-                .setRequired(true))
-        .addStringOption(option =>
-            option.setName('reason')
-                .setDescription('Reason for hiatus')
-                .setRequired(true))
+        .setDescription('Manage your hiatus status')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('register')
+                .setDescription('Register a new hiatus period')
+                .addStringOption(option =>
+                    option.setName('from')
+                        .setDescription('Start date (YYYY-MM-DD)')
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('to')
+                        .setDescription('End date (YYYY-MM-DD)')
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('reason')
+                        .setDescription('Reason for hiatus')
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('state')
+                .setDescription('Check your current hiatus status'))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);
