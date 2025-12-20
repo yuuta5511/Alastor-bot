@@ -104,11 +104,11 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
 
         // Find the hiatus notice channel
         const hiatusChannel = client.channels.cache.find(
-            ch => ch.name === '📝〢hiatus・notice' && ch.isTextBased()
+            ch => ch.name === '📢・hiatus・notice' && ch.isTextBased()
         );
 
         if (!hiatusChannel) {
-            console.error('❌ Hiatus notice channel (📝〢hiatus・notice) not found!');
+            console.error('❌ Hiatus notice channel (📢・hiatus・notice) not found!');
             return;
         }
 
@@ -124,8 +124,8 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
         const member = guild.members.cache.find(m => m.user.username === username);
 
         if (member) {
-            // Remove (hiatus) from nickname
-            const currentNick = member.nickname || member.user.username;
+            // ⭐ CHANGED: Remove (hiatus) from nickname, using display name
+            const currentNick = member.nickname || member.displayName;
             const newNick = currentNick.replace(/\s*\(hiatus\)\s*/gi, '').trim();
             
             try {
