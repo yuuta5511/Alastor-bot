@@ -51,7 +51,7 @@ async function handleRegister(interaction) {
         // Validate date format
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
-            return interaction.editReply({ content: '❌ Invalid date format! Use YYYY-MM-DD (e.g., 2024-12-25)' });
+            return interaction.editReply({ content: '❌ Invalid date format! Use YYYY-MM-DD (e.g., 2026-01-01)' });
         }
 
         // Validate dates are valid
