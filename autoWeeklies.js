@@ -231,16 +231,58 @@ export async function handleWeeklyModal(interaction, sessionId) {
 
         await interaction.editReply({ content: '⏳ Processing images... This may take a moment.' });
 
-        const filesList = await drive.files.list({
-            q: `'${sourceFolderId}' in parents and trashed=false and (mimeType contains 'image/')`,
-            fields: 'files(id, name, mimeType)',
-            pageSize: 1000
-        });
+        // First, try to grant service account access to the source folder
+        try {
+            await drive.permissions.create({
+                fileId: sourceFolderId,
+                requestBody: {
+                    role: 'reader',
+                    type: 'anyone',
+                    allowFileDiscovery: false
+                },
+                supportsAllDrives: true
+            });
+            console.log('✅ Granted access to source folder');
+        } catch (permError) {
+            console.log('⚠️ Could not modify permissions (might already have access):', permError.message);
+        }
 
-        const files = filesList.data.files || [];
+        // List ALL files first (not just images with mimeType filter)
+        let filesList;
+        try {
+            filesList = await drive.files.list({
+                q: `'${sourceFolderId}' in parents and trashed=false`,
+                fields: 'files(id, name, mimeType, fileExtension)',
+                pageSize: 1000,
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true
+            });
+        } catch (listError) {
+            console.error('❌ Error listing files:', listError);
+            return interaction.editReply({ 
+                content: `❌ Cannot access the source folder!\n\n**Please share the folder with:** \`${creds.client_email}\`\n\nGive it "Viewer" access, then try again.` 
+            });
+        }
+
+        const allFiles = filesList.data.files || [];
+        console.log(`📁 Found ${allFiles.length} total files in source folder`);
+        
+        // Filter for image files by extension and mimeType
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico', '.tiff', '.tif'];
+        const files = allFiles.filter(file => {
+            const hasImageMime = file.mimeType && file.mimeType.startsWith('image/');
+            const hasImageExt = imageExtensions.some(ext => 
+                file.name.toLowerCase().endsWith(ext)
+            );
+            return hasImageMime || hasImageExt;
+        });
+        
+        console.log(`🖼️ Filtered to ${files.length} image files`);
         
         if (files.length === 0) {
-            await interaction.followUp({ content: '⚠️ No images found in source folder!' });
+            await interaction.followUp({ 
+                content: `⚠️ No images found in source folder!\n📊 Total files found: ${allFiles.length}\n💡 Make sure the folder contains image files (.jpg, .png, etc.)` 
+            });
         } else {
             const newFolder = await drive.files.create({
                 requestBody: {
@@ -248,7 +290,8 @@ export async function handleWeeklyModal(interaction, sessionId) {
                     mimeType: 'application/vnd.google-apps.folder',
                     parents: [destFolderId]
                 },
-                fields: 'id'
+                fields: 'id',
+                supportsAllDrives: true
             });
 
             const newFolderId = newFolder.data.id;
@@ -261,11 +304,13 @@ export async function handleWeeklyModal(interaction, sessionId) {
                         requestBody: {
                             name: file.name,
                             parents: [newFolderId]
-                        }
+                        },
+                        supportsAllDrives: true
                     });
                     copiedCount++;
+                    console.log(`✅ Copied: ${file.name}`);
                 } catch (copyError) {
-                    console.error(`Error copying file ${file.name}:`, copyError);
+                    console.error(`❌ Error copying file ${file.name}:`, copyError.message);
                 }
             }
 
