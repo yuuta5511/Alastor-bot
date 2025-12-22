@@ -1,52 +1,45 @@
 import { google } from "googleapis";
-import { ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
+import { ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } from "discord.js";
 
 // ====== Automatic Weeklies Scheduler ======
 // Runs every day at 3:05 AM GMT+2
 
+// Store active sessions (linkIndex -> session data)
+const activeSessions = new Map();
+
 export function startWeekliesScheduler(client) {
     console.log('📅 Weeklies scheduler started - will run daily at 3:05 AM GMT+2');
 
-    // Check every minute if it's time to run
     setInterval(async () => {
         const now = new Date();
-        
-        // Convert to GMT+2 timezone
-        const gmt2Time = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Cairo' })); // GMT+2
-        
+        const gmt2Time = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Cairo' }));
         const hours = gmt2Time.getHours();
         const minutes = gmt2Time.getMinutes();
         
-        // Run at 3:05 AM
-        if (hours === 24 && minutes === 45) {
+        if (hours === 24 && minutes === 55) {
             console.log('⏰ It\'s 3:05 AM GMT+2 - Running automatic weeklies!');
             await sendWeeklies(client);
         }
-    }, 60 * 1000); // Check every minute
+    }, 60 * 1000);
 }
 
 async function sendWeeklies(client) {
     try {
-        console.log('🔄 Starting automatic weeklies process...');
+        console.log('📄 Starting automatic weeklies process...');
 
-        // ====== Setup Google Sheets & Drive ======
         const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         const auth = new google.auth.GoogleAuth({
             credentials: creds,
-            scopes: [
-                'https://www.googleapis.com/auth/spreadsheets',
-                'https://www.googleapis.com/auth/drive'
-            ]
+            scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
         });
 
         const authClient = await auth.getClient();
         const sheets = google.sheets({ version: 'v4', auth: authClient });
-        const drive = google.drive({ version: 'v3', auth: authClient });
 
         const spreadsheetId = process.env.SHEET_ID;
         const sheetName = 'PROGRESS';
 
-        // ====== Get Column B Data WITH HYPERLINKS ======
+        // Get Column B Data WITH HYPERLINKS
         const response = await sheets.spreadsheets.get({
             spreadsheetId,
             ranges: [`${sheetName}!B:B`],
@@ -59,25 +52,15 @@ async function sendWeeklies(client) {
             return;
         }
 
-        // ====== Get Config Sheet for Destination Folders ======
-        const configResponse = await sheets.spreadsheets.get({
-            spreadsheetId,
-            ranges: ['Config!D:D'],
-            includeGridData: true
-        });
-
-        const configData = configResponse.data.sheets[0]?.data[0]?.rowData || [];
-
-        // ====== Get Today's Day Name ======
         const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const today = new Date();
         const todayName = daysOfWeek[today.getDay()];
 
         console.log(`🗓️ Today is: ${todayName}`);
 
-        // ====== Find Today's Row and Collect Links with Row Numbers ======
+        // Find Today's Row and Collect Links with Row Numbers
         let foundToday = false;
-        let linkData = []; // Array of {link, rowNumber}
+        let linksData = []; // {link, rowNumber}
 
         for (let i = 0; i < rowData.length; i++) {
             const cell = rowData[i]?.values?.[0];
@@ -101,14 +84,12 @@ async function sendWeeklies(client) {
                     break;
                 }
 
-                // Collect Kakao and Ridi links from hyperlinks
                 if (hyperlink && (hyperlink.includes('kakao') || hyperlink.includes('ridibooks.com'))) {
-                    linkData.push({ link: hyperlink, rowNumber: i + 1 });
-                    console.log(`🔗 Found link at row ${i + 1}: ${hyperlink}`);
-                }
-                else if (cellValue.includes('kakao') || cellValue.includes('ridi') || cellValue.includes('http')) {
-                    linkData.push({ link: cellValue, rowNumber: i + 1 });
-                    console.log(`🔗 Found link in text at row ${i + 1}: ${cellValue}`);
+                    linksData.push({ link: hyperlink, rowNumber: i + 1 });
+                    console.log(`🔗 Found link: ${hyperlink} at row ${i + 1}`);
+                } else if (cellValue.includes('kakao') || cellValue.includes('ridi') || cellValue.includes('http')) {
+                    linksData.push({ link: cellValue, rowNumber: i + 1 });
+                    console.log(`🔗 Found link in text: ${cellValue} at row ${i + 1}`);
                 }
             }
         }
@@ -118,12 +99,12 @@ async function sendWeeklies(client) {
             return;
         }
 
-        if (linkData.length === 0) {
+        if (linksData.length === 0) {
             console.log(`⚠️ No Kakao/Ridi links found for ${todayName}!`);
             return;
         }
 
-        // ====== Find ☆kakao-provider Channel ======
+        // Find ☆kakao-provider Channel
         const targetChannel = client.channels.cache.find(
             ch => ch.name === '☆kakao-provider' && ch.isTextBased()
         );
@@ -133,294 +114,190 @@ async function sendWeeklies(client) {
             return;
         }
 
-        // ====== Send First Link with Input Fields ======
-        const mention = '<@1165517026475917315>';
-        const firstLinkData = linkData[0];
-        
-        // Get destination folder ID from Config sheet
-        const destinationFolderId = getDestinationFolderId(configData, firstLinkData.rowNumber);
-
-        const message = `${mention}\n\n**📚 Weekly Kakao/Ridi Links for ${todayName.toUpperCase()}**\n\n` +
-                       `**Link ${1}/${linkData.length}:**\n${firstLinkData.link}\n\n` +
-                       `Please fill in the details and click Next:`;
-
-        // Create message with custom ID containing all needed data
-        const customId = `weeklies_input_0_${linkData.map(d => `${d.rowNumber}`).join(',')}_${destinationFolderId || 'none'}`;
-        
-        const button = new ButtonBuilder()
-            .setCustomId(customId)
-            .setLabel('Open Input Form')
-            .setStyle(ButtonStyle.Primary);
-
-        const row = new ActionRowBuilder().addComponents(button);
-
-        await targetChannel.send({
-            content: message,
-            components: [row],
-            allowedMentions: { parse: ['users'] }
+        // Create session ID and store data
+        const sessionId = Date.now().toString();
+        activeSessions.set(sessionId, {
+            linksData,
+            currentIndex: 0,
+            todayName,
+            channelId: targetChannel.id
         });
 
-        console.log(`✅ Automatically sent link 1/${linkData.length} to ${targetChannel.name}!`);
+        // Send first link
+        await sendLinkMessage(client, sessionId);
+
+        console.log(`✅ Started weeklies session with ${linksData.length} links`);
 
     } catch (error) {
         console.error('❌ Error in automatic weeklies:', error);
     }
 }
 
-// Helper function to get destination folder ID from Config sheet
-function getDestinationFolderId(configData, rowNumber) {
-    try {
-        if (rowNumber <= configData.length) {
-            const cell = configData[rowNumber - 1]?.values?.[0];
-            const folderId = cell?.formattedValue || '';
-            
-            // Extract folder ID from link if it's a full URL
-            const match = folderId.match(/[-\w]{25,}/);
-            return match ? match[0] : folderId;
-        }
-    } catch (error) {
-        console.error('Error getting destination folder ID:', error);
+async function sendLinkMessage(client, sessionId) {
+    const session = activeSessions.get(sessionId);
+    if (!session) return;
+
+    const { linksData, currentIndex, todayName, channelId } = session;
+    const channel = client.channels.cache.get(channelId);
+    
+    if (!channel) return;
+
+    if (currentIndex >= linksData.length) {
+        // All links processed
+        await channel.send({
+            content: '<@&1269706276309569581> ✅ All weekly links have been processed!',
+            allowedMentions: { parse: ['roles'] }
+        });
+        activeSessions.delete(sessionId);
+        return;
     }
-    return null;
+
+    const currentLink = linksData[currentIndex];
+    const mention = '<@1165517026475917315>';
+
+    const embed = new EmbedBuilder()
+        .setColor('#00FF00')
+        .setTitle(`📚 Weekly Link for ${todayName.toUpperCase()}`)
+        .setDescription(`**Link ${currentIndex + 1} of ${linksData.length}**\n\n${currentLink.link}`)
+        .setFooter({ text: `Row ${currentLink.rowNumber}` })
+        .setTimestamp();
+
+    const button = new ButtonBuilder()
+        .setCustomId(`weekly_fill_${sessionId}`)
+        .setLabel('Fill Chapter Details 📝')
+        .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(button);
+
+    await channel.send({
+        content: mention,
+        embeds: [embed],
+        components: [row],
+        allowedMentions: { parse: ['users'] }
+    });
 }
 
-// ====== Handle Button Interactions for Weeklies ======
-export async function handleWeekliesButton(interaction) {
-    if (!interaction.customId.startsWith('weeklies_input_')) return false;
-
+// Handle modal submission
+export async function handleWeeklyModal(interaction, sessionId) {
     try {
-        const parts = interaction.customId.split('_');
-        const currentIndex = parseInt(parts[2]);
-        const rowNumbers = parts[3].split(',').map(n => parseInt(n));
-        const destinationBase = parts[4];
+        await interaction.deferReply();
 
-        // Get the current link to display in modal title
-        const sheets = google.sheets({ version: 'v4', auth: await getAuthClient() });
-        const spreadsheetId = process.env.SHEET_ID;
-        
-        const response = await sheets.spreadsheets.get({
-            spreadsheetId,
-            ranges: ['PROGRESS!B:B'],
-            includeGridData: true
+        const session = activeSessions.get(sessionId);
+        if (!session) {
+            return interaction.editReply({ content: '❌ Session expired or invalid!' });
+        }
+
+        const driveLink = interaction.fields.getTextInputValue('drive_link');
+        const chapterNumber = interaction.fields.getTextInputValue('chapter_number');
+
+        const { linksData, currentIndex } = session;
+        const currentLink = linksData[currentIndex];
+
+        // Check if user wants to skip
+        if (driveLink.toLowerCase().trim() === 'skip') {
+            session.currentIndex++;
+            activeSessions.set(sessionId, session);
+            
+            await interaction.editReply({ content: '⏭️ Skipped this link.' });
+            await sendLinkMessage(interaction.client, sessionId);
+            return;
+        }
+
+        // Extract source folder ID from drive link
+        const sourceFolderMatch = driveLink.match(/[-\w]{25,}/);
+        if (!sourceFolderMatch) {
+            return interaction.editReply({ content: '❌ Invalid Drive link!' });
+        }
+        const sourceFolderId = sourceFolderMatch[0];
+
+        // Get destination folder ID from Config sheet
+        const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        const auth = new google.auth.GoogleAuth({
+            credentials: creds,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
         });
 
-        const rowData = response.data.sheets[0]?.data[0]?.rowData || [];
-        const currentRowNumber = rowNumbers[currentIndex];
+        const authClient = await auth.getClient();
+        const sheets = google.sheets({ version: 'v4', auth: authClient });
+        const drive = google.drive({ version: 'v3', auth: authClient });
 
-        // Show modal for input
-        const modal = new ModalBuilder()
-            .setCustomId(`weeklies_modal_${currentIndex}_${parts[3]}_${destinationBase}`)
-            .setTitle(`Chapter Info - ${currentIndex + 1}/${rowNumbers.length}`);
+        const spreadsheetId = process.env.SHEET_ID;
+        
+        // Get Config sheet, column D
+        const configResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `Config!D${currentLink.rowNumber}`
+        });
 
-        const driveInput = new TextInputBuilder()
-            .setCustomId('drive_link')
-            .setLabel('Drive Link (or type "skip")')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('https://drive.google.com/... or skip')
-            .setRequired(true);
-
-        const chapterInput = new TextInputBuilder()
-            .setCustomId('chapter_number')
-            .setLabel('Chapter Number')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('e.g., 42')
-            .setRequired(true);
-
-        const firstRow = new ActionRowBuilder().addComponents(driveInput);
-        const secondRow = new ActionRowBuilder().addComponents(chapterInput);
-
-        modal.addComponents(firstRow, secondRow);
-
-        await interaction.showModal(modal);
-        return true;
-
-    } catch (error) {
-        console.error('Error showing modal:', error);
-        return false;
-    }
-}
-
-// ====== Handle Modal Submissions for Weeklies ======
-export async function handleWeekliesModal(interaction) {
-    if (!interaction.customId.startsWith('weeklies_modal_')) return false;
-
-    try {
-        await interaction.deferReply({ ephemeral: false });
-
-        const parts = interaction.customId.split('_');
-        const currentIndex = parseInt(parts[2]);
-        const rowNumbers = parts[3].split(',').map(n => parseInt(n));
-        const destinationBase = parts[4];
-
-        const driveLink = interaction.fields.getTextInputValue('drive_link').trim();
-        const chapterNumber = interaction.fields.getTextInputValue('chapter_number').trim();
-
-        // ====== Process the current link ======
-        if (driveLink.toLowerCase() !== 'skip') {
-            await interaction.editReply({ content: '⏳ Processing images... Please wait.' });
-
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/drive']
+        const destinationLink = configResponse.data.values?.[0]?.[0];
+        if (!destinationLink) {
+            return interaction.editReply({ 
+                content: `❌ No destination folder found in Config sheet at row ${currentLink.rowNumber}!` 
             });
+        }
 
-            const authClient = await auth.getClient();
-            const drive = google.drive({ version: 'v3', auth: authClient });
+        const destFolderMatch = destinationLink.match(/[-\w]{25,}/);
+        if (!destFolderMatch) {
+            return interaction.editReply({ content: '❌ Invalid destination folder link in Config sheet!' });
+        }
+        const destFolderId = destFolderMatch[0];
 
-            // Extract source folder ID
-            const sourceFolderMatch = driveLink.match(/[-\w]{25,}/);
-            if (!sourceFolderMatch) {
-                await interaction.editReply({ content: '❌ Invalid Drive link!' });
-                return true;
-            }
-            const sourceFolderId = sourceFolderMatch[0];
+        await interaction.editReply({ content: '⏳ Processing images... This may take a moment.' });
 
-            // Get destination folder from Config
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
-            
-            const configResponse = await sheets.spreadsheets.get({
-                spreadsheetId,
-                ranges: ['Config!D:D'],
-                includeGridData: true
-            });
+        // List all image files in source folder
+        const filesList = await drive.files.list({
+            q: `'${sourceFolderId}' in parents and trashed=false and (mimeType contains 'image/')`,
+            fields: 'files(id, name, mimeType)',
+            pageSize: 1000
+        });
 
-            const configData = configResponse.data.sheets[0]?.data[0]?.rowData || [];
-            const currentRowNumber = rowNumbers[currentIndex];
-            const destinationFolderId = getDestinationFolderId(configData, currentRowNumber);
-
-            if (!destinationFolderId || destinationFolderId === 'none') {
-                await interaction.editReply({ 
-                    content: `❌ No destination folder found in Config sheet for row ${currentRowNumber}!` 
-                });
-                return true;
-            }
-
-            // Create new folder with chapter number
+        const files = filesList.data.files || [];
+        
+        if (files.length === 0) {
+            await interaction.followUp({ content: '⚠️ No images found in source folder!' });
+        } else {
+            // Create new folder with chapter number in destination
             const newFolder = await drive.files.create({
                 requestBody: {
-                    name: chapterNumber,
+                    name: `ch ${chapterNumber}`,
                     mimeType: 'application/vnd.google-apps.folder',
-                    parents: [destinationFolderId]
+                    parents: [destFolderId]
                 },
                 fields: 'id'
             });
 
             const newFolderId = newFolder.data.id;
-            console.log(`✅ Created folder "${chapterNumber}" in destination`);
 
-            // Get all images from source folder
-            const fileList = await drive.files.list({
-                q: `'${sourceFolderId}' in parents and trashed=false`,
-                fields: 'files(id, name, mimeType)',
-                pageSize: 1000
-            });
-
-            const images = fileList.data.files.filter(file => 
-                file.mimeType.startsWith('image/')
-            );
-
-            if (images.length === 0) {
-                await interaction.editReply({ 
-                    content: `⚠️ No images found in source folder! Moving to next link...` 
-                });
-            } else {
-                // Copy each image to new folder
-                let copiedCount = 0;
-                for (const image of images) {
-                    try {
-                        await drive.files.copy({
-                            fileId: image.id,
-                            requestBody: {
-                                name: image.name,
-                                parents: [newFolderId]
-                            }
-                        });
-                        copiedCount++;
-                    } catch (copyError) {
-                        console.error(`Error copying ${image.name}:`, copyError);
-                    }
+            // Copy all images to new folder
+            let copiedCount = 0;
+            for (const file of files) {
+                try {
+                    await drive.files.copy({
+                        fileId: file.id,
+                        requestBody: {
+                            name: file.name,
+                            parents: [newFolderId]
+                        }
+                    });
+                    copiedCount++;
+                } catch (copyError) {
+                    console.error(`Error copying file ${file.name}:`, copyError);
                 }
-
-                await interaction.editReply({ 
-                    content: `✅ Copied ${copiedCount} image(s) to folder "${chapterNumber}"!` 
-                });
-                console.log(`✅ Copied ${copiedCount} images to chapter ${chapterNumber}`);
             }
-        } else {
-            await interaction.editReply({ content: '⏭️ Skipped this link.' });
+
+            await interaction.followUp({ 
+                content: `✅ Successfully copied ${copiedCount} images to folder "ch ${chapterNumber}"!` 
+            });
         }
 
-        // ====== Move to Next Link or Finish ======
-        const nextIndex = currentIndex + 1;
-
-        if (nextIndex < rowNumbers.length) {
-            // Get next link from PROGRESS sheet
-            const sheets = google.sheets({ version: 'v4', auth: await getAuthClient() });
-            const spreadsheetId = process.env.SHEET_ID;
-            
-            const response = await sheets.spreadsheets.get({
-                spreadsheetId,
-                ranges: ['PROGRESS!B:B'],
-                includeGridData: true
-            });
-
-            const rowData = response.data.sheets[0]?.data[0]?.rowData || [];
-            const nextRowNumber = rowNumbers[nextIndex];
-            const nextCell = rowData[nextRowNumber - 1]?.values?.[0];
-            const nextLink = nextCell?.hyperlink || nextCell?.formattedValue || 'Unknown link';
-
-            const nextMessage = `**Link ${nextIndex + 1}/${rowNumbers.length}:**\n${nextLink}\n\n` +
-                               `Please fill in the details and click Next:`;
-
-            const customId = `weeklies_input_${nextIndex}_${parts[3]}_${destinationBase}`;
-            
-            const button = new ButtonBuilder()
-                .setCustomId(customId)
-                .setLabel('Open Input Form')
-                .setStyle(ButtonStyle.Primary);
-
-            const row = new ActionRowBuilder().addComponents(button);
-
-            await interaction.followUp({
-                content: nextMessage,
-                components: [row]
-            });
-
-        } else {
-            // All done - notify supervisor
-            const supervisorMention = '<@&1269706276309569581>';
-            await interaction.followUp({
-                content: `${supervisorMention} All chapters processed and uploaded! ✅`,
-                allowedMentions: { parse: ['roles'] }
-            });
-            console.log('✅ All weeklies processed!');
-        }
-
-        return true;
+        // Move to next link
+        session.currentIndex++;
+        activeSessions.set(sessionId, session);
+        
+        await sendLinkMessage(interaction.client, sessionId);
 
     } catch (error) {
-        console.error('Error handling modal submission:', error);
-        try {
-            await interaction.editReply({ 
-                content: `❌ Error processing: ${error.message}` 
-            });
-        } catch (e) {
-            console.error('Could not send error message');
-        }
-        return false;
+        console.error('❌ Error in handleWeeklyModal:', error);
+        await interaction.followUp({ content: `❌ Error: ${error.message}` });
     }
-}
-
-async function getAuthClient() {
-    const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-    const auth = new google.auth.GoogleAuth({
-        credentials: creds,
-        scopes: [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive'
-        ]
-    });
-    return auth.getClient();
 }
