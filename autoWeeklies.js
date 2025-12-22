@@ -1,11 +1,9 @@
 import { google } from "googleapis";
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } from "discord.js";
+import { activeSessions } from './weekliesCommand.js';
 
 // ====== Automatic Weeklies Scheduler ======
 // Runs every day at 3:05 AM GMT+2
-
-// Store active sessions (linkIndex -> session data)
-const activeSessions = new Map();
 
 export function startWeekliesScheduler(client) {
     console.log('📅 Weeklies scheduler started - will run daily at 3:05 AM GMT+2');
@@ -16,7 +14,7 @@ export function startWeekliesScheduler(client) {
         const hours = gmt2Time.getHours();
         const minutes = gmt2Time.getMinutes();
         
-        if (hours === 0 && minutes === 55) {
+        if (hours === 3 && minutes === 5) {
             console.log('⏰ It\'s 3:05 AM GMT+2 - Running automatic weeklies!');
             await sendWeeklies(client);
         }
@@ -39,7 +37,6 @@ async function sendWeeklies(client) {
         const spreadsheetId = process.env.SHEET_ID;
         const sheetName = 'PROGRESS';
 
-        // Get Column B Data WITH HYPERLINKS
         const response = await sheets.spreadsheets.get({
             spreadsheetId,
             ranges: [`${sheetName}!B:B`],
@@ -58,9 +55,8 @@ async function sendWeeklies(client) {
 
         console.log(`🗓️ Today is: ${todayName}`);
 
-        // Find Today's Row and Collect Links with Row Numbers
         let foundToday = false;
-        let linksData = []; // {link, rowNumber}
+        let linksData = [];
 
         for (let i = 0; i < rowData.length; i++) {
             const cell = rowData[i]?.values?.[0];
@@ -104,7 +100,6 @@ async function sendWeeklies(client) {
             return;
         }
 
-        // Find ☆kakao-provider Channel
         const targetChannel = client.channels.cache.find(
             ch => ch.name === '☆kakao-provider' && ch.isTextBased()
         );
@@ -114,7 +109,6 @@ async function sendWeeklies(client) {
             return;
         }
 
-        // Create session ID and store data
         const sessionId = Date.now().toString();
         activeSessions.set(sessionId, {
             linksData,
@@ -123,7 +117,6 @@ async function sendWeeklies(client) {
             channelId: targetChannel.id
         });
 
-        // Send first link
         await sendLinkMessage(client, sessionId);
 
         console.log(`✅ Started weeklies session with ${linksData.length} links`);
@@ -143,7 +136,6 @@ async function sendLinkMessage(client, sessionId) {
     if (!channel) return;
 
     if (currentIndex >= linksData.length) {
-        // All links processed
         await channel.send({
             content: '<@&1269706276309569581> ✅ All weekly links have been processed!',
             allowedMentions: { parse: ['roles'] }
@@ -177,7 +169,6 @@ async function sendLinkMessage(client, sessionId) {
     });
 }
 
-// Handle modal submission
 export async function handleWeeklyModal(interaction, sessionId) {
     try {
         await interaction.deferReply();
@@ -193,7 +184,6 @@ export async function handleWeeklyModal(interaction, sessionId) {
         const { linksData, currentIndex } = session;
         const currentLink = linksData[currentIndex];
 
-        // Check if user wants to skip
         if (driveLink.toLowerCase().trim() === 'skip') {
             session.currentIndex++;
             activeSessions.set(sessionId, session);
@@ -203,14 +193,12 @@ export async function handleWeeklyModal(interaction, sessionId) {
             return;
         }
 
-        // Extract source folder ID from drive link
         const sourceFolderMatch = driveLink.match(/[-\w]{25,}/);
         if (!sourceFolderMatch) {
             return interaction.editReply({ content: '❌ Invalid Drive link!' });
         }
         const sourceFolderId = sourceFolderMatch[0];
 
-        // Get destination folder ID from Config sheet
         const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         const auth = new google.auth.GoogleAuth({
             credentials: creds,
@@ -223,7 +211,6 @@ export async function handleWeeklyModal(interaction, sessionId) {
 
         const spreadsheetId = process.env.SHEET_ID;
         
-        // Get Config sheet, column D
         const configResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
             range: `Config!D${currentLink.rowNumber}`
@@ -244,7 +231,6 @@ export async function handleWeeklyModal(interaction, sessionId) {
 
         await interaction.editReply({ content: '⏳ Processing images... This may take a moment.' });
 
-        // List all image files in source folder
         const filesList = await drive.files.list({
             q: `'${sourceFolderId}' in parents and trashed=false and (mimeType contains 'image/')`,
             fields: 'files(id, name, mimeType)',
@@ -256,7 +242,6 @@ export async function handleWeeklyModal(interaction, sessionId) {
         if (files.length === 0) {
             await interaction.followUp({ content: '⚠️ No images found in source folder!' });
         } else {
-            // Create new folder with chapter number in destination
             const newFolder = await drive.files.create({
                 requestBody: {
                     name: `ch ${chapterNumber}`,
@@ -268,7 +253,6 @@ export async function handleWeeklyModal(interaction, sessionId) {
 
             const newFolderId = newFolder.data.id;
 
-            // Copy all images to new folder
             let copiedCount = 0;
             for (const file of files) {
                 try {
@@ -290,7 +274,6 @@ export async function handleWeeklyModal(interaction, sessionId) {
             });
         }
 
-        // Move to next link
         session.currentIndex++;
         activeSessions.set(sessionId, session);
         
