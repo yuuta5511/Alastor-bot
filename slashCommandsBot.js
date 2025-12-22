@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { registerCommands } from './registerCommands.js';
 import weekliesCommand from './weekliesCommand.js';
 import hiatusCommand from './hiatusCommand.js';
+import { handleWeekliesButton, handleWeekliesModal } from './autoWeeklies.js';
 
 // ====== DISCORD BOT for Slash Commands ======
 const slashBot = new Client({
@@ -184,11 +185,11 @@ const requestCommand = {
             }
 
             const claimWorkChannel = interaction.guild.channels.cache.find(
-                ch => ch.name === '🏹〢claim・work' && ch.isTextBased()
+                ch => ch.name === '🹀¢claim»work' && ch.isTextBased()
             );
 
             if (!claimWorkChannel) {
-                return interaction.editReply({ content: '❌ 🏹〢claim・work channel not found!' });
+                return interaction.editReply({ content: '❌ 🹀¢claim»work channel not found!' });
             }
 
             const embed = new EmbedBuilder()
@@ -271,7 +272,7 @@ const assignCommand = {
             
             await member.roles.add(projectRole);
 
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
+            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📃¢emails' && ch.isTextBased());
             if (!emailsChannel) {
                 return interaction.editReply({ content: '❌ Emails channel not found!' });
             }
@@ -376,6 +377,7 @@ slashBot.slashCommands.set(updateMembersCommand.data.name, updateMembersCommand)
 
 // ====== Handle Interactions ======
 slashBot.on('interactionCreate', async (interaction) => {
+    // Handle slash commands
     if (interaction.isChatInputCommand()) {
         const command = slashBot.slashCommands.get(interaction.commandName);
         if (!command) return;
@@ -392,341 +394,288 @@ slashBot.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // ====== Handle Accept Request Button with Drive Access ======
-    if (interaction.isButton() && interaction.customId.startsWith('accept_request_')) {
-        console.log(`Button clicked: ${interaction.customId} by ${interaction.user.tag}`);
-        try {
-            await interaction.deferReply({ ephemeral: true });
-
-            const parts = interaction.customId.split('_');
-            const requesterId = parts[2];
-            const roleId = parts[3];
-            const fromChapter = parts[4];
-            const roleType = parts[5];
-
-            const acceptingUser = interaction.user;
-            const guild = interaction.guild;
-
-            const role = guild.roles.cache.get(roleId);
-            if (!role) {
-                return interaction.editReply({ content: '❌ Role not found!' });
-            }
-
-            const member = await guild.members.fetch(acceptingUser.id);
-            await member.roles.add(role);
-
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📝〢emails' && ch.isTextBased());
-            if (!emailsChannel) {
-                return interaction.editReply({ content: '❌ Emails channel not found!' });
-            }
-
-            const messages = await emailsChannel.messages.fetch({ limit: 100 });
-            const userMessages = messages.filter(msg => msg.author.id === acceptingUser.id);
-            if (userMessages.size === 0) {
-                return interaction.editReply({ content: '❌ No previous email found in emails channel!' });
-            }
-
-            const lastUserMessage = userMessages.first();
-            const userEmail = lastUserMessage.content.trim();
-
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-            });
-
-            const authClient = await auth.getClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
-            const drive = google.drive({ version: 'v3', auth: authClient });
-
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheetName = process.env.SHEET_NAME || 'PROGRESS';
-
-            const response = await sheets.spreadsheets.values.get({ 
-                spreadsheetId, 
-                range: `${sheetName}!A:ZZ` 
-            });
-            
-            const rows = response.data.values;
-            if (!rows || rows.length === 0) {
-                return interaction.editReply({ content: '❌ Spreadsheet is empty!' });
-            }
-
-            const header = rows[0];
-            const driveColumnIndex = header.findIndex(col => 
-                col && typeof col === "string" && col.trim().toLowerCase() === "v221"
-            );
-            
-            if (driveColumnIndex === -1) {
-                return interaction.editReply({ content: '❌ V221 column not found!' });
-            }
-
-            const roleFirstThree = getFirstThreeWords(role.name);
-            const projectRow = rows.find(row => 
-                row[0] && getFirstThreeWords(row[0]) === roleFirstThree
-            );
-            
-            if (!projectRow) {
-                return interaction.editReply({ 
-                    content: `❌ Project "${role.name}" not found in spreadsheet!` 
-                });
-            }
-
-            const driveLink = projectRow[driveColumnIndex];
-            if (!driveLink) {
-                return interaction.editReply({ 
-                    content: `❌ Found project row but V221 is empty!` 
-                });
-            }
-
-            const fileIdMatch = driveLink.match(/[-\w]{25,}/);
-            if (!fileIdMatch) {
-                return interaction.editReply({ content: '❌ Invalid Drive link!' });
-            }
-            const folderId = fileIdMatch[0];
-
-            const driveResult = await giveDriveAccessByRole(drive, folderId, userEmail, roleType);
-            
-            if (!driveResult.success) {
-                return interaction.editReply({ 
-                    content: `❌ Error giving Drive permission: ${driveResult.message}` 
-                });
-            }
-
-            const targetChannel = findMatchingChannel(role.name);
-            if (targetChannel) {
-                await targetChannel.send({
-                    content: `${acceptingUser} start from ch ${fromChapter}, access granted ✅`,
-                    allowedMentions: { parse: ['users'] }
-                });
-            }
-
-            const disabledButton = new ButtonBuilder()
-                .setCustomId('disabled_button')
-                .setLabel('Task Accepted ✅')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(true);
-
-            const newRow = new ActionRowBuilder().addComponents(disabledButton);
-            const originalEmbed = interaction.message.embeds[0];
-            const updatedEmbed = EmbedBuilder.from(originalEmbed)
-                .setColor('#808080')
-                .addFields({ name: '✅ Accepted By', value: `${acceptingUser}`, inline: true });
-
-            await interaction.message.edit({ 
-                embeds: [updatedEmbed], 
-                components: [newRow] 
-            });
-
-            await interaction.editReply({ 
-                content: `✅ Done! You received role ${role.name} and Drive access.\n📁 ${driveResult.message}` 
-            });
-
-        } catch (error) {
-            console.error('Error handling button:', error);
-            await interaction.editReply({ content: '❌ Error handling the request!' });
+    // Handle button clicks
+    if (interaction.isButton()) {
+        // ====== Handle Weeklies Input Button ======
+        if (await handleWeekliesButton(interaction)) {
+            return;
         }
-    }
 
-    // ====== Handle "All Done" Button for Weeklies ======
-    if (interaction.isButton() && interaction.customId.startsWith('weeklies_done_')) {
-        console.log(`Weeklies Done button clicked by ${interaction.user.tag}`);
-        try {
-            await interaction.deferReply();
+        // ====== Handle Accept Request Button with Drive Access ======
+        if (interaction.customId.startsWith('accept_request_')) {
+            console.log(`Button clicked: ${interaction.customId} by ${interaction.user.tag}`);
+            try {
+                await interaction.deferReply({ ephemeral: true });
 
-            const rowIndicesStr = interaction.customId.replace('weeklies_done_', '');
-            const rowIndices = rowIndicesStr.split(',').map(n => parseInt(n));
+                const parts = interaction.customId.split('_');
+                const requesterId = parts[2];
+                const roleId = parts[3];
+                const fromChapter = parts[4];
+                const roleType = parts[5];
 
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets']
-            });
+                const acceptingUser = interaction.user;
+                const guild = interaction.guild;
 
-            const authClient = await auth.getClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
+                const role = guild.roles.cache.get(roleId);
+                if (!role) {
+                    return interaction.editReply({ content: '❌ Role not found!' });
+                }
 
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheetName = 'PROGRESS';
+                const member = await guild.members.fetch(acceptingUser.id);
+                await member.roles.add(role);
 
-            const response = await sheets.spreadsheets.values.get({
-                spreadsheetId,
-                range: `${sheetName}!L:L`
-            });
+                const emailsChannel = guild.channels.cache.find(ch => ch.name === '📃¢emails' && ch.isTextBased());
+                if (!emailsChannel) {
+                    return interaction.editReply({ content: '❌ Emails channel not found!' });
+                }
 
-            const columnLData = response.data.values || [];
-            const lLinks = [];
+                const messages = await emailsChannel.messages.fetch({ limit: 100 });
+                const userMessages = messages.filter(msg => msg.author.id === acceptingUser.id);
+                if (userMessages.size === 0) {
+                    return interaction.editReply({ content: '❌ No previous email found in emails channel!' });
+                }
 
-            for (const rowIndex of rowIndices) {
-                if (rowIndex <= columnLData.length && columnLData[rowIndex - 1]) {
-                    const lValue = columnLData[rowIndex - 1][0];
-                    if (lValue && lValue.trim()) {
-                        lLinks.push(lValue);
+                const lastUserMessage = userMessages.first();
+                const userEmail = lastUserMessage.content.trim();
+
+                const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+                const auth = new google.auth.GoogleAuth({
+                    credentials: creds,
+                    scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+                });
+
+                const authClient = await auth.getClient();
+                const sheets = google.sheets({ version: 'v4', auth: authClient });
+                const drive = google.drive({ version: 'v3', auth: authClient });
+
+                const spreadsheetId = process.env.SHEET_ID;
+                const sheetName = process.env.SHEET_NAME || 'PROGRESS';
+
+                const response = await sheets.spreadsheets.values.get({ 
+                    spreadsheetId, 
+                    range: `${sheetName}!A:ZZ` 
+                });
+                
+                const rows = response.data.values;
+                if (!rows || rows.length === 0) {
+                    return interaction.editReply({ content: '❌ Spreadsheet is empty!' });
+                }
+
+                const header = rows[0];
+                const driveColumnIndex = header.findIndex(col => 
+                    col && typeof col === "string" && col.trim().toLowerCase() === "v221"
+                );
+                
+                if (driveColumnIndex === -1) {
+                    return interaction.editReply({ content: '❌ V221 column not found!' });
+                }
+
+                const roleFirstThree = getFirstThreeWords(role.name);
+                const projectRow = rows.find(row => 
+                    row[0] && getFirstThreeWords(row[0]) === roleFirstThree
+                );
+                
+                if (!projectRow) {
+                    return interaction.editReply({ 
+                        content: `❌ Project "${role.name}" not found in spreadsheet!` 
+                    });
+                }
+
+                const driveLink = projectRow[driveColumnIndex];
+                if (!driveLink) {
+                    return interaction.editReply({ 
+                        content: `❌ Found project row but V221 is empty!` 
+                    });
+                }
+
+                const fileIdMatch = driveLink.match(/[-\w]{25,}/);
+                if (!fileIdMatch) {
+                    return interaction.editReply({ content: '❌ Invalid Drive link!' });
+                }
+                const folderId = fileIdMatch[0];
+
+                const driveResult = await giveDriveAccessByRole(drive, folderId, userEmail, roleType);
+                
+                if (!driveResult.success) {
+                    return interaction.editReply({ 
+                        content: `❌ Error giving Drive permission: ${driveResult.message}` 
+                    });
+                }
+
+                const targetChannel = findMatchingChannel(role.name);
+                if (targetChannel) {
+                    await targetChannel.send({
+                        content: `${acceptingUser} start from ch ${fromChapter}, access granted ✅`,
+                        allowedMentions: { parse: ['users'] }
+                    });
+                }
+
+                const disabledButton = new ButtonBuilder()
+                    .setCustomId('disabled_button')
+                    .setLabel('Task Accepted ✅')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true);
+
+                const newRow = new ActionRowBuilder().addComponents(disabledButton);
+                const originalEmbed = interaction.message.embeds[0];
+                const updatedEmbed = EmbedBuilder.from(originalEmbed)
+                    .setColor('#808080')
+                    .addFields({ name: '✅ Accepted By', value: `${acceptingUser}`, inline: true });
+
+                await interaction.message.edit({ 
+                    embeds: [updatedEmbed], 
+                    components: [newRow] 
+                });
+
+                await interaction.editReply({ 
+                    content: `✅ Done! You received role ${role.name} and Drive access.\n📝 ${driveResult.message}` 
+                });
+
+            } catch (error) {
+                console.error('Error handling button:', error);
+                await interaction.editReply({ content: '❌ Error handling the request!' });
+            }
+        }
+
+        // ====== Handle "Cancel It!" Button for Hiatus ======
+        if (interaction.customId.startsWith('cancel_hiatus_')) {
+            console.log(`Cancel hiatus button clicked by ${interaction.user.tag}`);
+            try {
+                const parts = interaction.customId.split('_');
+                const userId = parts[2];
+                const rowNumber = parseInt(parts[3]);
+
+                if (interaction.user.id !== userId) {
+                    return interaction.reply({ 
+                        content: '❌ You can only cancel your own hiatus!',
+                        ephemeral: true 
+                    });
+                }
+
+                const disabledButton = new ButtonBuilder()
+                    .setCustomId('hiatus_cancelled')
+                    .setLabel('Cancelling...')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true);
+
+                const newRow = new ActionRowBuilder().addComponents(disabledButton);
+                
+                const originalEmbed = interaction.message.embeds[0];
+                const updatingEmbed = EmbedBuilder.from(originalEmbed)
+                    .setColor('#FFA500')
+                    .setTitle('🖐️ Cancelling Hiatus...');
+
+                await interaction.update({ 
+                    embeds: [updatingEmbed], 
+                    components: [newRow] 
+                });
+
+                const member = interaction.member;
+                const username = interaction.user.username;
+
+                try {
+                    const currentNick = member.nickname || member.displayName;
+                    const newNick = currentNick
+                        .replace(/\s*\(hiatus\)\s*/gi, '')
+                        .replace(/\(hiatus\)/gi, '')
+                        .trim();
+                    
+                    if (newNick && newNick !== currentNick) {
+                        await member.setNickname(newNick === member.user.username ? null : newNick);
+                        console.log(`✅ Removed (hiatus) from nickname`);
+                    }
+                } catch (nickError) {
+                    console.error('❌ Error removing hiatus from nickname:', nickError);
+                }
+
+                const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+                const auth = new google.auth.GoogleAuth({
+                    credentials: creds,
+                    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+                });
+
+                const authClient = await auth.getClient();
+                const sheets = google.sheets({ version: 'v4', auth: authClient });
+
+                const spreadsheetId = process.env.SHEET_ID;
+                const sheetName = 'Members';
+
+                const response = await sheets.spreadsheets.values.get({
+                    spreadsheetId,
+                    range: `${sheetName}!G:G`
+                });
+
+                const columnGData = response.data.values || [];
+                let targetRow = 3;
+                for (let i = 2; i < columnGData.length + 10; i++) {
+                    const cellValue = columnGData[i] ? columnGData[i][0] : '';
+                    if (!cellValue || cellValue.trim() === '') {
+                        targetRow = i + 1;
+                        break;
                     }
                 }
+
+                await sheets.spreadsheets.values.batchUpdate({
+                    spreadsheetId,
+                    requestBody: {
+                        valueInputOption: 'RAW',
+                        data: [
+                            {
+                                range: `${sheetName}!G${targetRow}`,
+                                values: [[username]]
+                            },
+                            {
+                                range: `${sheetName}!M${rowNumber}:O${rowNumber}`,
+                                values: [['', '', '']]
+                            },
+                            {
+                                range: `${sheetName}!Q${rowNumber}`,
+                                values: [['']]
+                            }
+                        ]
+                    }
+                });
+
+                const finalButton = new ButtonBuilder()
+                    .setCustomId('hiatus_cancelled')
+                    .setLabel('Hiatus Cancelled ✅')
+                    .setStyle(ButtonStyle.Success)
+                    .setDisabled(true);
+
+                const finalRow = new ActionRowBuilder().addComponents(finalButton);
+                
+                const finalEmbed = EmbedBuilder.from(originalEmbed)
+                    .setColor('#808080')
+                    .setTitle('🖐️ Hiatus Cancelled')
+                    .setFooter({ text: 'You have been moved back to inactive members' });
+
+                await interaction.editReply({ 
+                    embeds: [finalEmbed], 
+                    components: [finalRow] 
+                });
+
+                console.log(`✅ Hiatus cancelled for ${username}`);
+
+            } catch (error) {
+                console.error('Error handling cancel hiatus button:', error);
+                
+                try {
+                    await interaction.followUp({ 
+                        content: `❌ Error cancelling hiatus: ${error.message}`,
+                        ephemeral: true 
+                    });
+                } catch (followUpError) {
+                    console.error('Could not send error message:', followUpError);
+                }
             }
-
-            const disabledButton = new ButtonBuilder()
-                .setCustomId('weeklies_done_disabled')
-                .setLabel('All Done ✅')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(true);
-
-            const newRow = new ActionRowBuilder().addComponents(disabledButton);
-            await interaction.message.edit({ components: [newRow] });
-
-            const supervisorMention = '<@&1269706276309569581>';
-            let notificationMessage = `${supervisorMention} All ready to upload you, can up them to`;
-
-            if (lLinks.length > 0) {
-                notificationMessage += `\n\n${lLinks.join('\n')}`;
-            } else {
-                notificationMessage += `\n\n*(No links found in column L for these rows)*`;
-            }
-
-            await interaction.channel.send({
-                content: notificationMessage,
-                allowedMentions: { parse: ['roles'] }
-            });
-
-            await interaction.editReply({ content: '✅ Notification sent!' });
-
-        } catch (error) {
-            console.error('Error handling weeklies done button:', error);
-            await interaction.editReply({ content: '❌ Error processing the request!' });
         }
     }
 
-    // ====== Handle "Cancel It!" Button for Hiatus ======
-    if (interaction.isButton() && interaction.customId.startsWith('cancel_hiatus_')) {
-        console.log(`Cancel hiatus button clicked by ${interaction.user.tag}`);
-        try {
-            const parts = interaction.customId.split('_');
-            const userId = parts[2];
-            const rowNumber = parseInt(parts[3]);
-
-            if (interaction.user.id !== userId) {
-                return interaction.reply({ 
-                    content: '❌ You can only cancel your own hiatus!',
-                    ephemeral: true 
-                });
-            }
-
-            const disabledButton = new ButtonBuilder()
-                .setCustomId('hiatus_cancelled')
-                .setLabel('Cancelling...')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(true);
-
-            const newRow = new ActionRowBuilder().addComponents(disabledButton);
-            
-            const originalEmbed = interaction.message.embeds[0];
-            const updatingEmbed = EmbedBuilder.from(originalEmbed)
-                .setColor('#FFA500')
-                .setTitle('🖐️ Cancelling Hiatus...');
-
-            await interaction.update({ 
-                embeds: [updatingEmbed], 
-                components: [newRow] 
-            });
-
-            const member = interaction.member;
-            const username = interaction.user.username;
-
-            try {
-                const currentNick = member.nickname || member.displayName;
-                const newNick = currentNick
-                    .replace(/\s*\(hiatus\)\s*/gi, '')
-                    .replace(/\(hiatus\)/gi, '')
-                    .trim();
-                
-                if (newNick && newNick !== currentNick) {
-                    await member.setNickname(newNick === member.user.username ? null : newNick);
-                    console.log(`✅ Removed (hiatus) from nickname`);
-                }
-            } catch (nickError) {
-                console.error('❌ Error removing hiatus from nickname:', nickError);
-            }
-
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets']
-            });
-
-            const authClient = await auth.getClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
-
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheetName = 'Members';
-
-            const response = await sheets.spreadsheets.values.get({
-                spreadsheetId,
-                range: `${sheetName}!G:G`
-            });
-
-            const columnGData = response.data.values || [];
-            let targetRow = 3;
-            for (let i = 2; i < columnGData.length + 10; i++) {
-                const cellValue = columnGData[i] ? columnGData[i][0] : '';
-                if (!cellValue || cellValue.trim() === '') {
-                    targetRow = i + 1;
-                    break;
-                }
-            }
-
-            await sheets.spreadsheets.values.batchUpdate({
-                spreadsheetId,
-                requestBody: {
-                    valueInputOption: 'RAW',
-                    data: [
-                        {
-                            range: `${sheetName}!G${targetRow}`,
-                            values: [[username]]
-                        },
-                        {
-                            range: `${sheetName}!M${rowNumber}:O${rowNumber}`,
-                            values: [['', '', '']]
-                        },
-                        {
-                            range: `${sheetName}!Q${rowNumber}`,
-                            values: [['']]
-                        }
-                    ]
-                }
-            });
-
-            const finalButton = new ButtonBuilder()
-                .setCustomId('hiatus_cancelled')
-                .setLabel('Hiatus Cancelled ✅')
-                .setStyle(ButtonStyle.Success)
-                .setDisabled(true);
-
-            const finalRow = new ActionRowBuilder().addComponents(finalButton);
-            
-            const finalEmbed = EmbedBuilder.from(originalEmbed)
-                .setColor('#808080')
-                .setTitle('🖐️ Hiatus Cancelled')
-                .setFooter({ text: 'You have been moved back to inactive members' });
-
-            await interaction.editReply({ 
-                embeds: [finalEmbed], 
-                components: [finalRow] 
-            });
-
-            console.log(`✅ Hiatus cancelled for ${username}`);
-
-        } catch (error) {
-            console.error('Error handling cancel hiatus button:', error);
-            
-            try {
-                await interaction.followUp({ 
-                    content: `❌ Error cancelling hiatus: ${error.message}`,
-                    ephemeral: true 
-                });
-            } catch (followUpError) {
-                console.error('Could not send error message:', followUpError);
-            }
+    // Handle modal submissions
+    if (interaction.isModalSubmit()) {
+        // ====== Handle Weeklies Modal Submission ======
+        if (await handleWeekliesModal(interaction)) {
+            return;
         }
     }
 });
