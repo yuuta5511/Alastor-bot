@@ -1,5 +1,10 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from "discord.js";
 import { google } from "googleapis";
+
+// Import the session storage from autoWeeklies (we'll share it)
+const activeSessions = new Map();
+
+export { activeSessions }; // Export so autoWeeklies.js can also use it
 
 // ====== /weeklies Command ======
 const weekliesCommand = {
@@ -28,7 +33,7 @@ const weekliesCommand = {
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets']
+                scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
             });
 
             const authClient = await auth.getClient();
@@ -63,47 +68,38 @@ const weekliesCommand = {
                 console.log(`🗓️ Today is: ${todayName}`);
             }
 
-            // ====== Find Today's Row and Collect Links ======
+            // ====== Find Today's Row and Collect Links with Row Numbers ======
             let foundToday = false;
-            let kakaoLinks = [];
+            let linksData = [];
 
             for (let i = 0; i < rowData.length; i++) {
-                const cell = rowData[i]?.values?.[0]; // Column B cell
+                const cell = rowData[i]?.values?.[0];
                 if (!cell) continue;
 
-                // Get cell display text
                 const cellValue = cell.formattedValue || '';
                 const cellLower = cellValue.toLowerCase().trim();
-
-                // Check if cell has a hyperlink
                 const hyperlink = cell.hyperlink;
 
-                // Check if this cell is a day name
                 const isDayName = daysOfWeek.some(day => cellLower === day);
 
                 if (!foundToday && cellLower === todayName) {
-                    // Found today's row, start collecting from next row
                     foundToday = true;
                     console.log(`✅ Found "${todayName}" at row ${i + 1}`);
                     continue;
                 }
 
                 if (foundToday) {
-                    // If we hit another day name OR "end", stop
                     if (isDayName || cellLower === 'end') {
                         console.log(`🛑 Found "${cellValue}" at row ${i + 1}, stopping`);
                         break;
                     }
 
-                    // Collect Kakao and Ridi links from hyperlinks
                     if (hyperlink && (hyperlink.includes('kakao') || hyperlink.includes('ridibooks.com'))) {
-                        kakaoLinks.push(hyperlink);
-                        console.log(`🔗 Found link: ${hyperlink}`);
-                    }
-                    // Also check cell text if it contains direct links
-                    else if (cellValue.includes('kakao') || cellValue.includes('ridi') || cellValue.includes('http')) {
-                        kakaoLinks.push(cellValue);
-                        console.log(`🔗 Found link in text: ${cellValue}`);
+                        linksData.push({ link: hyperlink, rowNumber: i + 1 });
+                        console.log(`🔗 Found link: ${hyperlink} at row ${i + 1}`);
+                    } else if (cellValue.includes('kakao') || cellValue.includes('ridi') || cellValue.includes('http')) {
+                        linksData.push({ link: cellValue, rowNumber: i + 1 });
+                        console.log(`🔗 Found link in text: ${cellValue} at row ${i + 1}`);
                     }
                 }
             }
@@ -114,7 +110,7 @@ const weekliesCommand = {
                 });
             }
 
-            if (kakaoLinks.length === 0) {
+            if (linksData.length === 0) {
                 return interaction.editReply({ 
                     content: `⚠️ No Kakao/Ridi links found for ${todayName}!` 
                 });
@@ -131,52 +127,20 @@ const weekliesCommand = {
                 });
             }
 
-            // ====== Send Links to Channel WITH BUTTON ======
-            const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
-            
-            const mention = '<@1165517026475917315>';
-            const message = `${mention}\n\n**📚 Weekly Kakao/Ridi Links for ${todayName.toUpperCase()}:**\n\n${kakaoLinks.join('\n')}\n\n**When u done press this button:**`;
-
-            // Create button with row indices
-            const rowIndices = [];
-            let tempFoundToday = false;
-            for (let i = 0; i < rowData.length; i++) {
-                const cell = rowData[i]?.values?.[0];
-                if (!cell) continue;
-                const cellValue = cell.formattedValue || '';
-                const cellLower = cellValue.toLowerCase().trim();
-                const isDayName = daysOfWeek.some(day => cellLower === day);
-                
-                if (!tempFoundToday && cellLower === todayName) {
-                    tempFoundToday = true;
-                    continue;
-                }
-                
-                if (tempFoundToday) {
-                    if (isDayName || cellLower === 'end') break;
-                    const hyperlink = cell.hyperlink;
-                    if ((hyperlink && (hyperlink.includes('kakao') || hyperlink.includes('ridibooks.com'))) ||
-                        (cellValue.includes('kakao') || cellValue.includes('ridi') || cellValue.includes('http'))) {
-                        rowIndices.push(i + 1); // Store 1-based row number
-                    }
-                }
-            }
-
-            const button = new ButtonBuilder()
-                .setCustomId(`weeklies_done_${rowIndices.join(',')}`)
-                .setLabel('All Done ✅')
-                .setStyle(ButtonStyle.Success);
-
-            const row = new ActionRowBuilder().addComponents(button);
-
-            await targetChannel.send({
-                content: message,
-                components: [row],
-                allowedMentions: { parse: ['roles'] }
+            // ====== Create Session and Send First Link ======
+            const sessionId = Date.now().toString();
+            activeSessions.set(sessionId, {
+                linksData,
+                currentIndex: 0,
+                todayName,
+                channelId: targetChannel.id
             });
 
+            // Send first link
+            await sendLinkMessage(interaction.client, sessionId);
+
             await interaction.editReply({ 
-                content: `✅ Sent ${kakaoLinks.length} Kakao/Ridi link(s) to ${targetChannel}!` 
+                content: `✅ Started sending ${linksData.length} link(s) to ${targetChannel}!` 
             });
 
         } catch (error) {
@@ -187,5 +151,50 @@ const weekliesCommand = {
         }
     }
 };
+
+// Helper function to send link message
+async function sendLinkMessage(client, sessionId) {
+    const session = activeSessions.get(sessionId);
+    if (!session) return;
+
+    const { linksData, currentIndex, todayName, channelId } = session;
+    const channel = client.channels.cache.get(channelId);
+    
+    if (!channel) return;
+
+    if (currentIndex >= linksData.length) {
+        // All links processed
+        await channel.send({
+            content: '<@&1269706276309569581> ✅ All weekly links have been processed!',
+            allowedMentions: { parse: ['roles'] }
+        });
+        activeSessions.delete(sessionId);
+        return;
+    }
+
+    const currentLink = linksData[currentIndex];
+    const mention = '<@1165517026475917315>';
+
+    const embed = new EmbedBuilder()
+        .setColor('#00FF00')
+        .setTitle(`📚 Weekly Link for ${todayName.toUpperCase()}`)
+        .setDescription(`**Link ${currentIndex + 1} of ${linksData.length}**\n\n${currentLink.link}`)
+        .setFooter({ text: `Row ${currentLink.rowNumber}` })
+        .setTimestamp();
+
+    const button = new ButtonBuilder()
+        .setCustomId(`weekly_fill_${sessionId}`)
+        .setLabel('Fill Chapter Details 📝')
+        .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(button);
+
+    await channel.send({
+        content: mention,
+        embeds: [embed],
+        components: [row],
+        allowedMentions: { parse: ['users'] }
+    });
+}
 
 export default weekliesCommand;
