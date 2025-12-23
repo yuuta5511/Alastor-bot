@@ -5,6 +5,22 @@ import weekliesCommand from './weekliesCommand.js';
 import hiatusCommand from './hiatusCommand.js';
 import { handleWeeklyModal } from './autoWeeklies.js';
 
+// ====== GOOGLE SHEET SETUP ======
+const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+
+const auth = new google.auth.GoogleAuth({
+    credentials: creds,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+});
+
+const authClient = await auth.getClient();
+const sheets = google.sheets({ version: 'v4', auth: authClient });
+const drive = google.drive({ version: 'v3', auth: authClient });
+
+const spreadsheetId = process.env.SHEET_ID;
+const progressSheetName = process.env.SHEET_NAME || 'PROGRESS';
+const configSheetName = 'Config';
+
 // ====== DISCORD BOT for Slash Commands ======
 const slashBot = new Client({
     intents: [
@@ -44,15 +60,84 @@ function getFirstThreeWords(text) {
     return words.slice(0, 3).join(' ');
 }
 
-// ====== FUNCTION TO FIND MATCHING CHANNEL ======
-function findMatchingChannel(roleName) {
-    const firstThreeWords = getFirstThreeWords(roleName);
-    if (!firstThreeWords) return null;
-    const found = slashBot.channels.cache.find(c => {
-        const channelFirstThree = getFirstThreeWords(c.name.replace(/-/g, ' '));
-        return channelFirstThree === firstThreeWords && c.isTextBased();
-    });
-    return found;
+// ====== FUNCTION TO FIND ROW NUMBER IN PROGRESS SHEET ======
+async function findProjectRowNumber(roleName) {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${progressSheetName}!A:A`
+        });
+
+        const rows = response.data.values || [];
+        const roleFirstThree = getFirstThreeWords(roleName);
+
+        for (let i = 0; i < rows.length; i++) {
+            const cellValue = rows[i][0];
+            if (cellValue && getFirstThreeWords(cellValue) === roleFirstThree) {
+                return i + 1; // Return 1-based row number
+            }
+        }
+
+        console.log(`⚠️ Project not found in PROGRESS sheet: ${roleName}`);
+        return null;
+    } catch (error) {
+        console.error('Error finding project row:', error);
+        return null;
+    }
+}
+
+// ====== FUNCTION TO GET CHANNEL ID FROM CONFIG SHEET ======
+async function getChannelIdFromConfig(rowNumber) {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${configSheetName}!F${rowNumber}`
+        });
+
+        const channelId = response.data.values?.[0]?.[0];
+        
+        if (!channelId) {
+            console.log(`⚠️ No channel ID found in Config!F${rowNumber}`);
+            return null;
+        }
+
+        return channelId.trim();
+    } catch (error) {
+        console.error('Error reading channel ID from Config sheet:', error);
+        return null;
+    }
+}
+
+// ====== FUNCTION TO FIND MATCHING CHANNEL BY ID ======
+async function findMatchingChannel(roleName) {
+    try {
+        // Step 1: Find row number in PROGRESS sheet
+        const rowNumber = await findProjectRowNumber(roleName);
+        if (!rowNumber) {
+            console.log(`⚠️ Could not find project row for: ${roleName}`);
+            return null;
+        }
+
+        // Step 2: Get channel ID from Config sheet
+        const channelId = await getChannelIdFromConfig(rowNumber);
+        if (!channelId) {
+            console.log(`⚠️ Could not find channel ID for row: ${rowNumber}`);
+            return null;
+        }
+
+        // Step 3: Find Discord channel by ID
+        const channel = slashBot.channels.cache.get(channelId);
+        if (!channel) {
+            console.log(`⚠️ Discord channel not found for ID: ${channelId}`);
+            return null;
+        }
+
+        console.log(`✅ Found channel: ${channel.name} (${channelId})`);
+        return channel;
+    } catch (error) {
+        console.error('Error in findMatchingChannel:', error);
+        return null;
+    }
 }
 
 // ====== Helper Function: Find Subfolder by Name Patterns ======
@@ -320,20 +405,10 @@ const assignCommand = {
 
             console.log(`Detected role type: ${roleType} for user ${targetUser.tag}`);
 
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+            const response = await sheets.spreadsheets.values.get({ 
+                spreadsheetId, 
+                range: `${progressSheetName}!A:ZZ` 
             });
-
-            const authClient = await auth.getClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
-            const drive = google.drive({ version: 'v3', auth: authClient });
-
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheetName = process.env.SHEET_NAME || 'PROGRESS';
-
-            const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${sheetName}!A:ZZ` });
             const rows = response.data.values;
             if (!rows || rows.length === 0) return interaction.editReply({ content: '❌ Spreadsheet is empty!' });
 
@@ -352,7 +427,7 @@ const assignCommand = {
             if (!fileIdMatch) return interaction.editReply({ content: '❌ Invalid Drive link!' });
             const folderId = fileIdMatch[0];
 
-            // Use role-based Drive access (same as /request)
+            // Use role-based Drive access
             const driveResult = await giveDriveAccessByRole(drive, folderId, userEmail, roleType);
             
             if (!driveResult.success) {
@@ -361,7 +436,7 @@ const assignCommand = {
                 });
             }
 
-            const targetChannel = findMatchingChannel(projectRole.name);
+            const targetChannel = await findMatchingChannel(projectRole.name);
             if (targetChannel) {
                 await targetChannel.send({
                     content: `${targetUser} start from ch ${fromChapter}, access granted ✅`,
@@ -502,22 +577,9 @@ slashBot.on('interactionCreate', async (interaction) => {
             const lastUserMessage = userMessages.first();
             const userEmail = lastUserMessage.content.trim();
 
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-            });
-
-            const authClient = await auth.getClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
-            const drive = google.drive({ version: 'v3', auth: authClient });
-
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheetName = process.env.SHEET_NAME || 'PROGRESS';
-
             const response = await sheets.spreadsheets.values.get({ 
                 spreadsheetId, 
-                range: `${sheetName}!A:ZZ` 
+                range: `${progressSheetName}!A:ZZ` 
             });
             
             const rows = response.data.values;
@@ -566,7 +628,7 @@ slashBot.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            const targetChannel = findMatchingChannel(role.name);
+            const targetChannel = await findMatchingChannel(role.name);
             if (targetChannel) {
                 await targetChannel.send({
                     content: `${acceptingUser} start from ch ${fromChapter}, access granted ✅`,
@@ -652,48 +714,21 @@ slashBot.on('interactionCreate', async (interaction) => {
                 console.error('❌ Error removing hiatus from nickname:', nickError);
             }
 
-            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-            const auth = new google.auth.GoogleAuth({
-                credentials: creds,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets']
-            });
-
-            const authClient = await auth.getClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
-
-            const spreadsheetId = process.env.SHEET_ID;
-            const sheetName = 'Members';
-
-            const response = await sheets.spreadsheets.values.get({
-                spreadsheetId,
-                range: `${sheetName}!G:G`
-            });
-
-            const columnGData = response.data.values || [];
-            let targetRow = 3;
-            for (let i = 2; i < columnGData.length + 10; i++) {
-                const cellValue = columnGData[i] ? columnGData[i][0] : '';
-                if (!cellValue || cellValue.trim() === '') {
-                    targetRow = i + 1;
-                    break;
-                }
-            }
-
             await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId,
                 requestBody: {
                     valueInputOption: 'RAW',
                     data: [
                         {
-                            range: `${sheetName}!G${targetRow}`,
+                            range: `Members!G${rowNumber}`,
                             values: [[username]]
                         },
                         {
-                            range: `${sheetName}!M${rowNumber}:O${rowNumber}`,
+                            range: `Members!M${rowNumber}:O${rowNumber}`,
                             values: [['', '', '']]
                         },
                         {
-                            range: `${sheetName}!Q${rowNumber}`,
+                            range: `Members!Q${rowNumber}`,
                             values: [['']]
                         }
                     ]
