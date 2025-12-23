@@ -4,6 +4,7 @@ const commands = [
     new SlashCommandBuilder()
         .setName('request')
         .setDescription('Request a role for a project')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(option =>
             option.setName('role')
             .setDescription('The role type you need')
@@ -48,6 +49,7 @@ const commands = [
     new SlashCommandBuilder()
         .setName('weeklies')
         .setDescription('Send weekly Kakao links from the PROGRESS sheet')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(option =>
             option.setName('day')
                 .setDescription('Choose a specific day (optional - defaults to today)')
@@ -63,7 +65,8 @@ const commands = [
                 )),
     new SlashCommandBuilder()
         .setName('update-members')
-        .setDescription('Manually update the Members sheet with current activity'),
+        .setDescription('Manually update the Members sheet with current activity')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     new SlashCommandBuilder()
         .setName('hiatus')
         .setDescription('Manage your hiatus status')
