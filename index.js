@@ -178,7 +178,7 @@ client.once('ready', async () => {
     const { manualUpdateMembers } = await import('./memberActivityTracker.js');
     await manualUpdateMembers(client);
     console.log('✅ Initial members update complete!');
-    
+     startChannelTracker(client);
     // Start the main checking loop
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
