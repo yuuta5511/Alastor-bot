@@ -19,8 +19,8 @@ slashBot.slashCommands = new Collection();
 
 // ====== Channel IDs Configuration ======
 const CHANNEL_IDS = {
-    CLAIM_WORK: '1447747886359253116', // Replace with actual channel ID
-    EMAILS: '1269706276779200607'          // Replace with actual channel ID
+    CLAIM_WORK: '1447747886359253116',
+    EMAILS: '1269706276779200607'
 };
 
 // ====== Role Mentions Mapping ======
@@ -231,6 +231,25 @@ const requestCommand = {
 };
 slashBot.slashCommands.set(requestCommand.data.name, requestCommand);
 
+// ====== Helper Function: Detect Role Type from User's Roles ======
+function detectRoleType(member) {
+    const roleIds = {
+        'ED': '1269706276288467057',
+        'PR': '1269706276288467058',
+        'KTL': '1270089817517981859',
+        'CTL': '1269706276288467059',
+        'JTL': '1288004879020724276',
+    };
+
+    for (const [roleType, roleId] of Object.entries(roleIds)) {
+        if (member.roles.cache.has(roleId)) {
+            return roleType;
+        }
+    }
+    
+    return null;
+}
+
 // ====== /assign Command ======
 const assignCommand = {
     data: new SlashCommandBuilder()
@@ -291,6 +310,14 @@ const assignCommand = {
             const lastUserMessage = userMessages.first();
             const userEmail = lastUserMessage.content.trim();
 
+            // Detect role type from user's roles
+            const roleType = detectRoleType(member);
+            if (!roleType) {
+                return interaction.editReply({ content: '❌ User does not have any recognized role (ED, PR, KTL, CTL, JTL)!' });
+            }
+
+            console.log(`Detected role type: ${roleType} for user ${targetUser.tag}`);
+
             const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
             const auth = new google.auth.GoogleAuth({
                 credentials: creds,
@@ -321,17 +348,15 @@ const assignCommand = {
 
             const fileIdMatch = driveLink.match(/[-\w]{25,}/);
             if (!fileIdMatch) return interaction.editReply({ content: '❌ Invalid Drive link!' });
-            const fileId = fileIdMatch[0];
+            const folderId = fileIdMatch[0];
 
-            try {
-                await drive.permissions.create({
-                    fileId,
-                    requestBody: { role: 'writer', type: 'user', emailAddress: userEmail },
-                    sendNotificationEmail: false,
+            // Use role-based Drive access (same as /request)
+            const driveResult = await giveDriveAccessByRole(drive, folderId, userEmail, roleType);
+            
+            if (!driveResult.success) {
+                return interaction.editReply({ 
+                    content: `❌ Error giving Drive permission: ${driveResult.message}` 
                 });
-            } catch (driveError) {
-                console.error('Drive permission error:', driveError);
-                return interaction.editReply({ content: '❌ Error giving Drive permission!' });
             }
 
             const targetChannel = findMatchingChannel(projectRole.name);
@@ -342,7 +367,9 @@ const assignCommand = {
                 });
             }
 
-            await interaction.editReply({ content: `✅ Done! ${targetUser} received role ${projectRole.name} and Drive access.` });
+            await interaction.editReply({ 
+                content: `✅ Done! ${targetUser} received role ${projectRole.name} and Drive access.\n📁 ${driveResult.message}` 
+            });
 
         } catch (error) {
             console.error('Error in /assign command:', error);
