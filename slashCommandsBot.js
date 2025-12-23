@@ -150,7 +150,7 @@ const requestCommand = {
     data: new SlashCommandBuilder()
         .setName('request')
         .setDescription('Request a role for a project')
-        .setDescription('Manually update the Members sheet with current activity')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(option =>
             option.setName('role')
                 .setDescription('The role type you need')
