@@ -4,18 +4,18 @@ const commands = [
     new SlashCommandBuilder()
         .setName('request')
         .setDescription('Request a role for a project')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // ⭐ ADD THIS LINE
         .addStringOption(option =>
             option.setName('role')
-            .setDescription('The role type you need')
-            .setRequired(true)
-            .addChoices(
-                { name: 'Editor (ED)', value: 'ED' },
-                { name: 'Proofreader (PR)', value: 'PR' },
-                { name: 'Translator KTL', value: 'KTL' },
-                { name: 'Translator JTL', value: 'JTL' },
-                { name: 'Translator CTL', value: 'CTL' },
-            ))
+                .setDescription('The role type you need')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Editor (ED)', value: 'ED' },
+                    { name: 'Proofreader (PR)', value: 'PR' },
+                    { name: 'Translator KTL', value: 'KTL' },
+                    { name: 'Translator JTL', value: 'JTL' },
+                    { name: 'Translator CTL', value: 'CTL' },
+                ))
         .addRoleOption(option =>
             option.setName('for')
             .setDescription('Select the project role')
