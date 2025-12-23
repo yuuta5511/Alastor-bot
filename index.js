@@ -1,13 +1,12 @@
 import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
 import { google } from "googleapis";
-
-// استيراد بوت الـ Slash Commands
 import './slashCommandsBot.js';
 import './sheetUpdateListener.js';
 import { startWeekliesScheduler } from './autoWeeklies.js';
 import { startMemberTracking } from './memberActivityTracker.js';
 import { startHiatusChecker } from './hiatusChecker.js';
+import { startChannelTracker } from './channelTracker.js';
 
 const app = express();
 app.use(express.json());
