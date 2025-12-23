@@ -388,7 +388,7 @@ slashBot.slashCommands.set(hiatusCommand.data.name, hiatusCommand);
 const updateMembersCommand = {
     data: new SlashCommandBuilder()
         .setName('update-members')
-        .setDescription('Manually update the Members sheet with current activity'),
+        .setDescription('Manually update the Members sheet with current activity')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
