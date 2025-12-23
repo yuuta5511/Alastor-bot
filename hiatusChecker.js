@@ -1,6 +1,3 @@
-// ============================================================
-// FILE: hiatusChecker.js (FIXED - Handles Column P = 0)
-// ============================================================
 
 import { google } from "googleapis";
 
@@ -129,11 +126,11 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
 
         // Find the hiatus notice channel
         const hiatusChannel = client.channels.cache.find(
-            ch => ch.name === '📝〢hiatus・notice' && ch.isTextBased()
+            ch => ch.name === '📢・hiatus・notice' && ch.isTextBased()
         );
 
         if (!hiatusChannel) {
-            console.error('❌ Hiatus notice channel (📝〢hiatus・notice) not found!');
+            console.error('❌ Hiatus notice channel (📢・hiatus・notice) not found!');
             return;
         }
 
@@ -193,15 +190,12 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
         }
 
         // ====== Move user back to inactive and clear hiatus row (SKIP COLUMN P) ======
+        // ⭐ IMPORTANT: Clear hiatus row FIRST before adding to inactive
         await sheets.spreadsheets.values.batchUpdate({
             spreadsheetId,
             requestBody: {
                 valueInputOption: 'RAW',
                 data: [
-                    {
-                        range: `${sheetName}!G${targetRow}`,
-                        values: [[username]]
-                    },
                     {
                         // Clear M, N, O (skip P to preserve formula)
                         range: `${sheetName}!M${rowNumber}:O${rowNumber}`,
@@ -213,6 +207,21 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
                         values: [['']]
                     }
                 ]
+            }
+        });
+
+        console.log(`🗑️ Cleared hiatus data from row ${rowNumber}`);
+
+        // ⭐ Wait a moment to ensure sheet updates
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // ⭐ Now add to inactive column
+        await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `${sheetName}!G${targetRow}`,
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[username]]
             }
         });
 
