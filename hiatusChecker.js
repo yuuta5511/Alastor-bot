@@ -1,5 +1,5 @@
 // ============================================================
-// FILE: hiatusChecker.js (FIXED - Preserves Column P Formula)
+// FILE: hiatusChecker.js (FIXED - Handles Column P = 0)
 // ============================================================
 
 import { google } from "googleapis";
@@ -57,40 +57,65 @@ async function checkHiatusExpiration(client) {
             const reason = row[4]; // Column Q
 
             // Skip if no username or end date
-            if (!username || !endDate) continue;
+            if (!username || !endDate) {
+                console.log(`⏭️ Skipping row ${i + 1}: missing username or end date`);
+                continue;
+            }
 
-            // Parse days remaining from column P
+            // ⭐ IMPROVED: Parse days remaining with better handling
             let daysLeft;
+            
+            if (daysRemaining === undefined || daysRemaining === null || daysRemaining === '') {
+                console.log(`⏭️ Skipping ${username}: days remaining is empty`);
+                continue;
+            }
+            
             if (typeof daysRemaining === 'number') {
                 daysLeft = daysRemaining;
             } else if (typeof daysRemaining === 'string') {
-                daysLeft = parseInt(daysRemaining);
+                // Handle string values including "0"
+                const trimmed = daysRemaining.trim();
+                daysLeft = parseFloat(trimmed);
+                
+                if (isNaN(daysLeft)) {
+                    console.log(`⏭️ Skipping ${username}: invalid days remaining value "${trimmed}"`);
+                    continue;
+                }
             } else {
-                continue; // Skip if days remaining is not set
+                console.log(`⏭️ Skipping ${username}: unexpected type for days remaining`);
+                continue;
             }
 
-            // Check if hiatus has ended (days remaining is 0 or negative)
+            console.log(`📊 ${username}: ${daysLeft} days remaining`);
+
+            // ⭐ Check if hiatus has ended (days remaining is 0 or negative)
             if (daysLeft <= 0) {
                 const notificationKey = `${username}_${endDate}`;
                 
                 // Only notify if we haven't already notified for this hiatus
                 if (!notifiedUsers.has(notificationKey)) {
+                    console.log(`✅ Found expired hiatus: ${username} (${daysLeft} days)`);
                     usersToNotify.push({
                         username,
-                        rowNumber: i + 1
+                        rowNumber: i + 1,
+                        daysLeft
                     });
                     notifiedUsers.add(notificationKey);
+                } else {
+                    console.log(`⏭️ Already notified: ${username}`);
                 }
             }
         }
 
         // ====== Process expired hiatus ======
-        for (const userData of usersToNotify) {
-            await processExpiredHiatus(client, sheets, spreadsheetId, sheetName, userData.username, userData.rowNumber);
-        }
-
         if (usersToNotify.length > 0) {
+            console.log(`📢 Processing ${usersToNotify.length} expired hiatus entries...`);
+            for (const userData of usersToNotify) {
+                await processExpiredHiatus(client, sheets, spreadsheetId, sheetName, userData.username, userData.rowNumber);
+            }
             console.log(`✅ Processed ${usersToNotify.length} expired hiatus entries`);
+        } else {
+            console.log('ℹ️ No expired hiatus entries found');
         }
 
     } catch (error) {
@@ -100,7 +125,7 @@ async function checkHiatusExpiration(client) {
 
 async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, username, rowNumber) {
     try {
-        console.log(`⏰ Processing expired hiatus for ${username}`);
+        console.log(`⏰ Processing expired hiatus for ${username} (row ${rowNumber})`);
 
         // Find the hiatus notice channel
         const hiatusChannel = client.channels.cache.find(
@@ -124,7 +149,7 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
         const member = guild.members.cache.find(m => m.user.username === username);
 
         if (member) {
-            // ⭐ CHANGED: Remove (hiatus) from nickname, using display name
+            // Remove (hiatus) from nickname
             const currentNick = member.nickname || member.displayName;
             const newNick = currentNick.replace(/\s*\(hiatus\)\s*/gi, '').trim();
             
@@ -132,7 +157,7 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
                 await member.setNickname(newNick || null);
                 console.log(`✅ Removed (hiatus) from ${username}'s nickname`);
             } catch (nickError) {
-                console.error('Error removing hiatus from nickname:', nickError);
+                console.error('⚠️ Error removing hiatus from nickname:', nickError);
             }
 
             // Send notification with mention
@@ -140,12 +165,14 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
                 content: `${member} ur hiatus is done`,
                 allowedMentions: { parse: ['users'] }
             });
+            console.log(`📢 Sent notification to ${username}`);
         } else {
             // User not found, still notify with username
             await hiatusChannel.send({
                 content: `@${username} ur hiatus is done`,
                 allowedMentions: { parse: [] }
             });
+            console.log(`📢 Sent notification for ${username} (not found in server)`);
         }
 
         // ====== Find first empty row in inactive column G ======
@@ -199,5 +226,6 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
 
 // Export for manual trigger if needed
 export async function manualCheckHiatus(client) {
+    console.log('🔍 Manual hiatus check triggered');
     await checkHiatusExpiration(client);
 }
