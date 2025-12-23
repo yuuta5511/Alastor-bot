@@ -26,6 +26,7 @@ const weekliesCommand = {
     data: new SlashCommandBuilder()
         .setName('weeklies')
         .setDescription('Send weekly Kakao links from the PROGRESS sheet')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(option =>
             option.setName('day')
                 .setDescription('Choose a specific day (optional - defaults to today)')
