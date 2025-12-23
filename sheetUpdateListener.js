@@ -1,5 +1,20 @@
 import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
+import { google } from "googleapis";
+
+// ====== GOOGLE SHEET SETUP ======
+const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+
+const auth = new google.auth.GoogleAuth({
+    credentials: creds,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+});
+
+const sheetsClient = await auth.getClient();
+const sheets = google.sheets({ version: "v4", auth: sheetsClient });
+
+const spreadsheetId = process.env.SHEET_ID;
+const configSheetName = "Config";
 
 // ====== DISCORD CLIENT FOR SHEET UPDATES ======
 const updateClient = new Client({
@@ -19,7 +34,7 @@ updateClient.login(token)
         process.exit(1);
     });
 
-// ====== ROLE MENTIONS (same as index.js) ======
+// ====== ROLE MENTIONS ======
 const roleMentions = {
     'ED': '<@&1269706276288467057>',
     'PR': '<@&1269706276288467058>',
@@ -28,33 +43,27 @@ const roleMentions = {
     'JTL': '<@&1288004879020724276>',
 };
 
-// ====== FUNCTION TO EXTRACT FIRST TWO WORDS (same as index.js) ======
-function getFirstTwoWords(text) {
-    if (!text) return "";
-    
-    // Remove ALL punctuation (including apostrophes) and emojis, keep only letters/numbers
-    const words = text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, '') // Remove all punctuation
-        .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII (emojis, arabic letters, etc)
-        .split(/\s+/)
-        .filter(w => w.length > 0);
-    
-    return words.slice(0, 2).join(' ');
-}
+// ====== FUNCTION TO GET CHANNEL ID FROM CONFIG SHEET ======
+async function getChannelIdFromConfig(rowNumber) {
+    try {
+        // Read the Config sheet to get channel ID from column F
+        const res = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${configSheetName}!F${rowNumber}`
+        });
 
-// ====== FUNCTION TO FIND MATCHING CHANNEL (same as index.js) ======
-function findMatchingChannel(sheetChannelName) {
-    const firstTwoWords = getFirstTwoWords(sheetChannelName);
-    if (!firstTwoWords) return null;
-    
-    // Find channel where its name starts with the first two words
-    const found = updateClient.channels.cache.find(c => {
-        const channelFirstTwo = getFirstTwoWords(c.name.replace(/-/g, ' '));
-        return channelFirstTwo === firstTwoWords;
-    });
-    
-    return found;
+        const channelId = res.data.values?.[0]?.[0];
+        
+        if (!channelId) {
+            console.log(`⚠️ No channel ID found in Config!F${rowNumber}`);
+            return null;
+        }
+
+        return channelId.trim();
+    } catch (error) {
+        console.error(`❌ Error reading channel ID from Config sheet:`, error);
+        return null;
+    }
 }
 
 // ====== CREATE EXPRESS APP FOR WEBHOOK ======
@@ -64,23 +73,33 @@ app.use(express.json());
 // ====== WEBHOOK ENDPOINT ======
 app.post("/sheet-update", async (req, res) => {
     try {
-        const { channelName, oldValue, newValue } = req.body;
+        const { rowNumber, oldValue, newValue } = req.body;
 
         // Validate input
-        if (!channelName || oldValue === undefined || newValue === undefined) {
+        if (!rowNumber || oldValue === undefined || newValue === undefined) {
             return res.status(400).json({ 
-                error: "Missing required fields: channelName, oldValue, newValue" 
+                error: "Missing required fields: rowNumber, oldValue, newValue" 
             });
         }
 
-        console.log(`📩 Received sheet update:`, { channelName, oldValue, newValue });
+        console.log(`📩 Received sheet update:`, { rowNumber, oldValue, newValue });
 
-        // Find matching Discord channel
-        const channel = findMatchingChannel(channelName);
-        if (!channel) {
-            console.log(`⚠️ Channel not found for: ${channelName}`);
+        // Get channel ID from Config sheet
+        const channelId = await getChannelIdFromConfig(rowNumber);
+        
+        if (!channelId) {
             return res.status(404).json({ 
-                error: `Channel not found for: ${channelName}` 
+                error: `Channel ID not found in Config sheet row ${rowNumber}` 
+            });
+        }
+
+        // Find Discord channel by ID
+        const channel = updateClient.channels.cache.get(channelId);
+        
+        if (!channel) {
+            console.log(`⚠️ Discord channel not found for ID: ${channelId}`);
+            return res.status(404).json({ 
+                error: `Discord channel not found for ID: ${channelId}` 
             });
         }
 
@@ -109,6 +128,7 @@ app.post("/sheet-update", async (req, res) => {
             success: true,
             message: `Notification sent to ${channel.name}`,
             sentTo: channel.name,
+            channelId: channelId,
             text: message
         });
 
