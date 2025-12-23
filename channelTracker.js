@@ -26,10 +26,10 @@ export async function updateChannelsInSheet(client) {
             return;
         }
 
-        // Get all text channels
+        // Get all text channels and sort them by rawPosition (Discord's actual order)
         const channels = guild.channels.cache
             .filter(channel => channel.type === 0) // 0 = Text Channel
-            .sort((a, b) => a.position - b.position) // Sort by position
+            .sort((a, b) => a.rawPosition - b.rawPosition) // Sort by Discord's visual order
             .map(channel => [channel.name, channel.id]);
 
         // Add header row
