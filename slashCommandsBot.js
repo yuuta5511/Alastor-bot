@@ -4,6 +4,7 @@ import { registerCommands } from './registerCommands.js';
 import weekliesCommand from './weekliesCommand.js';
 import hiatusCommand from './hiatusCommand.js';
 import { handleWeeklyModal } from './autoWeeklies.js';
+import { Client, GatewayIntentBits, Collection, SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from "discord.js";
 
 // ====== DISCORD BOT for Slash Commands ======
 const slashBot = new Client({
