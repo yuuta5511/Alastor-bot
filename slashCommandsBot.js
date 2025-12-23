@@ -17,6 +17,12 @@ const slashBot = new Client({
 
 slashBot.slashCommands = new Collection();
 
+// ====== Channel IDs Configuration ======
+const CHANNEL_IDS = {
+    CLAIM_WORK: '1447747886359253116', // Replace with actual channel ID
+    EMAILS: '1269706276779200607'          // Replace with actual channel ID
+};
+
 // ====== Role Mentions Mapping ======
 const roleMentions = {
     'ED': '<@&1269706276288467057>',
@@ -184,12 +190,10 @@ const requestCommand = {
                 return interaction.editReply({ content: '❌ Selected role not found!' });
             }
 
-            const claimWorkChannel = interaction.guild.channels.cache.find(
-                ch => ch.name === '�•claim・work' && ch.isTextBased()
-            );
+            const claimWorkChannel = interaction.guild.channels.cache.get(CHANNEL_IDS.CLAIM_WORK);
 
-            if (!claimWorkChannel) {
-                return interaction.editReply({ content: '❌ �•claim・work channel not found!' });
+            if (!claimWorkChannel || !claimWorkChannel.isTextBased()) {
+                return interaction.editReply({ content: '❌ Claim work channel not found or is not a text channel!' });
             }
 
             const embed = new EmbedBuilder()
@@ -272,9 +276,10 @@ const assignCommand = {
             
             await member.roles.add(projectRole);
 
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📃•emails' && ch.isTextBased());
-            if (!emailsChannel) {
-                return interaction.editReply({ content: '❌ Emails channel not found!' });
+            const emailsChannel = guild.channels.cache.get(CHANNEL_IDS.EMAILS);
+            
+            if (!emailsChannel || !emailsChannel.isTextBased()) {
+                return interaction.editReply({ content: '❌ Emails channel not found or is not a text channel!' });
             }
 
             const messages = await emailsChannel.messages.fetch({ limit: 100 });
@@ -452,9 +457,10 @@ slashBot.on('interactionCreate', async (interaction) => {
             const member = await guild.members.fetch(acceptingUser.id);
             await member.roles.add(role);
 
-            const emailsChannel = guild.channels.cache.find(ch => ch.name === '📃•emails' && ch.isTextBased());
-            if (!emailsChannel) {
-                return interaction.editReply({ content: '❌ Emails channel not found!' });
+            const emailsChannel = guild.channels.cache.get(CHANNEL_IDS.EMAILS);
+            
+            if (!emailsChannel || !emailsChannel.isTextBased()) {
+                return interaction.editReply({ content: '❌ Emails channel not found or is not a text channel!' });
             }
 
             const messages = await emailsChannel.messages.fetch({ limit: 100 });
