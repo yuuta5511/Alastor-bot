@@ -1,10 +1,10 @@
-import { Client, GatewayIntentBits, Collection, SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
+import { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 
 const commands = [
     new SlashCommandBuilder()
         .setName('request')
         .setDescription('Request a role for a project')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // ⭐ ADD THIS LINE
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(option =>
             option.setName('role')
                 .setDescription('The role type you need')
@@ -33,6 +33,7 @@ const commands = [
     new SlashCommandBuilder()
         .setName('assign')
         .setDescription('Assign a role and Drive access to a user')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addUserOption(option =>
             option.setName('user')
             .setDescription('Select a user to assign')
