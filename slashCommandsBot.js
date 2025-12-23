@@ -255,6 +255,7 @@ const assignCommand = {
     data: new SlashCommandBuilder()
         .setName('assign')
         .setDescription('Assign a user to a project with Drive access')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addUserOption(option =>
             option.setName('user')
                 .setDescription('The user to assign')
