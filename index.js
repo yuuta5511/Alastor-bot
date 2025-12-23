@@ -160,14 +160,20 @@ async function checkSheetAndSendMessages() {
 client.once('ready', async () => {
     console.log('✅ Main Discord bot is ready!');
     
-    // ⭐ START THE WEEKLIES SCHEDULER HERE!
+    // ⭐ START THE WEEKLIES SCHEDULER
     startWeekliesScheduler(client);
     
-    // ⭐ START MEMBER ACTIVITY TRACKING!
-    startMemberTracking(client);
-    
-    // ⭐ START HIATUS CHECKER! ⭐ ADD THIS LINE
+    // ⭐ START HIATUS CHECKER FIRST (before member tracking)
+    console.log('⏰ Starting hiatus checker...');
     startHiatusChecker(client);
+    
+    // ⭐ Wait for initial hiatus check to complete
+    console.log('⏳ Waiting for initial hiatus check...');
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    
+    // ⭐ NOW START MEMBER ACTIVITY TRACKING
+    console.log('📊 Starting member activity tracking...');
+    startMemberTracking(client);
     
     // ⭐ RUN INITIAL MEMBER UPDATE
     console.log('📊 Running initial members update...');
@@ -175,6 +181,7 @@ client.once('ready', async () => {
     await manualUpdateMembers(client);
     console.log('✅ Initial members update complete!');
     
+    // Start the main checking loop
     checkSheetAndSendMessages();
     setInterval(checkSheetAndSendMessages, 60 * 1000);
 });
