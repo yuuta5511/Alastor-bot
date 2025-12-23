@@ -1,4 +1,3 @@
-
 import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
 import { google } from "googleapis";
@@ -8,7 +7,7 @@ import './slashCommandsBot.js';
 import './sheetUpdateListener.js';
 import { startWeekliesScheduler } from './autoWeeklies.js';
 import { startMemberTracking } from './memberActivityTracker.js';
-import { startHiatusChecker } from './hiatusChecker.js'; // ⭐ ADD THIS LINE
+import { startHiatusChecker } from './hiatusChecker.js';
 
 const app = express();
 app.use(express.json());
@@ -19,8 +18,8 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,      // ⬅️ ADD THIS
-        GatewayIntentBits.GuildMembers         // ⬅️ ADD THIS
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers
     ],
 });
 
