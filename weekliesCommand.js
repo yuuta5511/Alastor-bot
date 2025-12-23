@@ -1,10 +1,25 @@
 import { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from "discord.js";
 import { google } from "googleapis";
 
-// Import the session storage from autoWeeklies (we'll share it)
+// Shared session storage
 const activeSessions = new Map();
 
 export { activeSessions }; // Export so autoWeeklies.js can also use it
+
+// Create OAuth2 client for Drive operations
+function createOAuthClient() {
+    const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_OAUTH_CLIENT_ID,
+        process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+        process.env.GOOGLE_OAUTH_REDIRECT_URI
+    );
+
+    oauth2Client.setCredentials({
+        refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN
+    });
+
+    return oauth2Client;
+}
 
 // ====== /weeklies Command ======
 const weekliesCommand = {
