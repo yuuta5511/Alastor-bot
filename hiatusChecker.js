@@ -126,11 +126,11 @@ async function processExpiredHiatus(client, sheets, spreadsheetId, sheetName, us
 
         // Find the hiatus notice channel
         const hiatusChannel = client.channels.cache.find(
-            ch => ch.name === '📢・hiatus・notice' && ch.isTextBased()
+            ch => ch.name === '📝〢hiatus・notice' && ch.isTextBased()
         );
 
         if (!hiatusChannel) {
-            console.error('❌ Hiatus notice channel (📢・hiatus・notice) not found!');
+            console.error('❌ Hiatus notice channel (📝〢hiatus・notice) not found!');
             return;
         }
 
