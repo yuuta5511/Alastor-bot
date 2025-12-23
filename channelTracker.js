@@ -64,10 +64,8 @@ export async function updateChannelsInSheet(client) {
 export function startChannelTracker(client) {
     console.log('🔄 Starting channel tracker...');
     
-    // Run immediately when bot is ready
-    client.once('ready', () => {
-        updateChannelsInSheet(client);
-    });
+    // Run immediately
+    updateChannelsInSheet(client);
     
     // Update channels list every 10 minutes
     setInterval(() => {
