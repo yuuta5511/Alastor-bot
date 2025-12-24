@@ -231,7 +231,7 @@ export async function handleWeeklyModal(interaction, sessionId) {
         
         const configResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `Config!D${currentLink.rowNumber}`
+            range: `Config!C${currentLink.rowNumber}`
         });
 
         const destinationLink = configResponse.data.values?.[0]?.[0];
