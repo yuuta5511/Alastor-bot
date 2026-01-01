@@ -23,33 +23,31 @@ const client = new Client({
 
 const token = process.env.BOT_TOKEN?.trim();
 if (!token) {
-    console.error("❌ BOT_TOKEN not found!");
+    console.error("❌ BOT_TOKEN مش موجود!");
     process.exit(1);
 }
 
 client.login(token)
     .then(() => console.log(`✅ Main Bot logged in as ${client.user.tag}`))
     .catch(err => {
-        console.error("❌ Login failed:", err);
+        console.error("❌ فشل تسجيل الدخول:", err);
         process.exit(1);
     });
 
-// ====== GOOGLE SHEET SETUP (exported for other files) ======
+// ====== GOOGLE SHEET SETUP (for other files to import) ======
 const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
 
 const auth = new google.auth.GoogleAuth({
     credentials: creds,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
 });
 
 const sheetsClient = await auth.getClient();
 export const sheets = google.sheets({ version: "v4", auth: sheetsClient });
-export const drive = google.drive({ version: "v3", auth: sheetsClient });
-
 export const spreadsheetId = process.env.SHEET_ID;
 export const sheetName = process.env.SHEET_NAME || "PROGRESS";
 
-// ====== WAIT FOR BOT TO BE READY ======
+// ====== BOT READY ======
 client.once('ready', async () => {
     console.log('✅ Main Discord bot is ready!');
     
@@ -72,11 +70,10 @@ client.once('ready', async () => {
     startChannelTracker(client);
 });
 
-// ====== API SERVER ======
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
 
-// ====== ERROR HANDLING ======
+// Error handling
 process.on('unhandledRejection', error => {
     console.error('❌ Unhandled promise rejection:', error);
 });
