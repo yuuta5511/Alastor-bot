@@ -34,40 +34,49 @@ client.login(token)
         process.exit(1);
     });
 
+// ====== GOOGLE SHEET SETUP (exported for other files) ======
+const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+
+const auth = new google.auth.GoogleAuth({
+    credentials: creds,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+});
+
+const sheetsClient = await auth.getClient();
+export const sheets = google.sheets({ version: "v4", auth: sheetsClient });
+export const drive = google.drive({ version: "v3", auth: sheetsClient });
+
+export const spreadsheetId = process.env.SHEET_ID;
+export const sheetName = process.env.SHEET_NAME || "PROGRESS";
+
 // ====== WAIT FOR BOT TO BE READY ======
 client.once('ready', async () => {
     console.log('✅ Main Discord bot is ready!');
     
-    // Start the weeklies scheduler
     startWeekliesScheduler(client);
     
-    // Start hiatus checker first
     console.log('⏰ Starting hiatus checker...');
     startHiatusChecker(client);
     
-    // Wait for initial hiatus check to complete
     console.log('⏳ Waiting for initial hiatus check...');
     await new Promise(resolve => setTimeout(resolve, 5000));
     
-    // Start member activity tracking
     console.log('📊 Starting member activity tracking...');
     startMemberTracking(client);
     
-    // Run initial member update
     console.log('📊 Running initial members update...');
     const { manualUpdateMembers } = await import('./memberActivityTracker.js');
     await manualUpdateMembers(client);
     console.log('✅ Initial members update complete!');
     
-    // Start channel tracker
     startChannelTracker(client);
 });
 
-// ====== API ENDPOINT ======
+// ====== API SERVER ======
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
 
-// Error handling
+// ====== ERROR HANDLING ======
 process.on('unhandledRejection', error => {
     console.error('❌ Unhandled promise rejection:', error);
 });
