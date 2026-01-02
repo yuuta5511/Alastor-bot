@@ -5,6 +5,9 @@ import weekliesCommand from './weekliesCommand.js';
 import hiatusCommand from './hiatusCommand.js';
 import { handleWeeklyModal } from './autoWeeklies.js';
 import { requestCommand, assignCommand, updateMembersCommand, handleAcceptButton } from './projectCommands.js';
+import { registerCommand } from './paymentSystem.js';
+import { seriesStateCommand } from './seriesState.js';
+import { submitCommand } from './submitWork.js';
 
 // ====== GOOGLE SHEET SETUP ======
 const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
@@ -40,6 +43,9 @@ slashBot.slashCommands.set(assignCommand.data.name, assignCommand);
 slashBot.slashCommands.set(weekliesCommand.data.name, weekliesCommand);
 slashBot.slashCommands.set(hiatusCommand.data.name, hiatusCommand);
 slashBot.slashCommands.set(updateMembersCommand.data.name, updateMembersCommand);
+slashBot.slashCommands.set(registerCommand.data.name, registerCommand);
+slashBot.slashCommands.set(seriesStateCommand.data.name, seriesStateCommand);
+slashBot.slashCommands.set(submitCommand.data.name, submitCommand);
 
 // ====== Handle Interactions ======
 slashBot.on('interactionCreate', async (interaction) => {
@@ -56,6 +62,18 @@ slashBot.on('interactionCreate', async (interaction) => {
                 await interaction.followUp({ content: '❌ An error occurred while executing the command!', ephemeral: true });
             } else {
                 await interaction.reply({ content: '❌ An error occurred while executing the command!', ephemeral: true });
+            }
+        }
+    }
+
+    // Handle autocomplete for /submit command
+    if (interaction.isAutocomplete()) {
+        const command = slashBot.slashCommands.get(interaction.commandName);
+        if (command && command.autocomplete) {
+            try {
+                await command.autocomplete(interaction);
+            } catch (error) {
+                console.error('Autocomplete error:', error);
             }
         }
     }
