@@ -90,14 +90,67 @@ const commands = [
         .addSubcommand(subcommand =>
             subcommand
                 .setName('state')
-                .setDescription('Check your current hiatus status'))
+                .setDescription('Check your current hiatus status')),
+    // NEW PAYMENT TRACKING COMMANDS
+    new SlashCommandBuilder()
+        .setName('register')
+        .setDescription('Register your payment information')
+        .addStringOption(option =>
+            option.setName('email')
+                .setDescription('Your email address')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('payment_method')
+                .setDescription('Choose your payment method')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Binance', value: 'binance' },
+                    { name: 'PayPal', value: 'paypal' }
+                ))
+        .addStringOption(option =>
+            option.setName('payment_id')
+                .setDescription('Your Binance ID or PayPal email/link')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('account_name')
+                .setDescription('Your account name')
+                .setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('series')
+        .setDescription('Check series progress')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('state')
+                .setDescription('View progress of all ongoing chapters in this series')),
+    new SlashCommandBuilder()
+        .setName('submit')
+        .setDescription('Submit completed work')
+        .addStringOption(option =>
+            option.setName('series')
+                .setDescription('Select the series')
+                .setRequired(true)
+                .setAutocomplete(true))
+        .addIntegerOption(option =>
+            option.setName('chapter')
+                .setDescription('Chapter number')
+                .setRequired(true)
+                .setMinValue(1))
+        .addStringOption(option =>
+            option.setName('role')
+                .setDescription('Your role for this work')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Editor (ED)', value: 'ED' },
+                    { name: 'Translator (TL)', value: 'TL' },
+                    { name: 'Proofreader (PR)', value: 'PR' }
+                ))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);
 
 export async function registerCommands() {
     try {
-        console.log('🔄 Started registering slash commands...');
+        console.log('📄 Started registering slash commands...');
         await rest.put(
             Routes.applicationCommands(process.env.CLIENT_ID),
             { body: commands },
@@ -110,7 +163,7 @@ export async function registerCommands() {
 
 export async function registerCommandsGuild(guildId) {
     try {
-        console.log('🔄 Started registering guild slash commands...');
+        console.log('📄 Started registering guild slash commands...');
         await rest.put(
             Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
             { body: commands },
