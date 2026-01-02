@@ -7,6 +7,8 @@ import { startWeekliesScheduler } from './autoWeeklies.js';
 import { startMemberTracking } from './memberActivityTracker.js';
 import { startHiatusChecker } from './hiatusChecker.js';
 import { startChannelTracker } from './channelTracker.js';
+import { startWorkTracker } from './workTracker.js';
+import { startAlertSystem } from './alertSystem.js';
 
 const app = express();
 app.use(express.json());
@@ -68,6 +70,15 @@ client.once('ready', async () => {
     console.log('✅ Initial members update complete!');
     
     startChannelTracker(client);
+    
+    // Start new payment tracking systems
+    console.log('📝 Starting work tracker...');
+    startWorkTracker(client);
+    
+    console.log('⏰ Starting work alert system...');
+    startAlertSystem(client);
+    
+    console.log('💰 Payment tracking system initialized!');
 });
 
 const PORT = process.env.PORT || 3000;
