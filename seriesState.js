@@ -184,9 +184,12 @@ export const seriesStateCommand = {
                 const worker = workers.find(w => w.chapter === ch);
                 if (worker) {
                     const hoursAgo = getHoursAgo(worker.timestamp);
-                    // Display with user ID mention
-                    const userMention = worker.userId ? `<@${worker.userId}>` : `@${worker.username}`;
-                    line += ` | Working: ${userMention} (${worker.role}) - ${hoursAgo}h ago`;
+                    // Use user ID for proper mention if available, otherwise fallback to username
+                    if (worker.userId) {
+                        line += ` | Working: <@${worker.userId}> (${worker.role}) - ${hoursAgo}h ago`;
+                    } else {
+                        line += ` | Working: @${worker.username} (${worker.role}) - ${hoursAgo}h ago`;
+                    }
                 }
 
                 chapterList += line + '\n';
