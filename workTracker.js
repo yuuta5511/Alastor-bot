@@ -229,9 +229,10 @@ export function startWorkTracker(client) {
 
             // Add to "Working now" sheet
             const timestamp = new Date().toISOString();
+            const userId = message.author.id; // Get Discord user ID
             const added = await addToWorkingNow(
                 message.author.username,
-                message.author.id,
+                userId,
                 seriesInfo.seriesName,
                 chapterNum,
                 role,
@@ -241,7 +242,7 @@ export function startWorkTracker(client) {
 
             if (added) {
                 await message.react('✅');
-                console.log(`✅ Work accepted: ${message.author.username} - ${seriesInfo.seriesName} Ch${chapterNum} (${role})`);
+                console.log(`✅ Work accepted: ${message.author.username} (${userId}) - ${seriesInfo.seriesName} Ch${chapterNum} (${role})`);
             } else {
                 await message.react('❌');
             }
