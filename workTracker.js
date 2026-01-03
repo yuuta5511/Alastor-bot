@@ -86,18 +86,55 @@ async function isAlreadyInLog(channelId, chapterNum, role) {
     }
 }
 
-// ====== Helper: Check if Chapter is Valid (less than RAW progress) ======
-async function isChapterValid(rowNumber, chapterNum) {
+// ====== Helper: Check if Chapter is Within Valid Range (N+1 to D) ======
+async function isChapterInValidRange(rowNumber, chapterNum) {
     try {
         const response = await sheetsClient.spreadsheets.values.get({
             spreadsheetId: OLD_SHEET_ID,
-            range: `${PROGRESS_PAGE}!D${rowNumber}`
+            range: `${PROGRESS_PAGE}!D${rowNumber}:N${rowNumber}`
         });
 
-        const rawProgress = parseInt(response.data.values?.[0]?.[0] || 0);
-        return chapterNum <= rawProgress;
+        const row = response.data.values?.[0] || [];
+        const rawProgress = parseInt(row[0] || 0); // Column D
+        const edProgress = parseInt(row[10] || 0); // Column N
+
+        // Chapter must be between ED+1 and RAW (inclusive)
+        const minChapter = edProgress + 1;
+        const maxChapter = rawProgress;
+
+        return chapterNum >= minChapter && chapterNum <= maxChapter;
     } catch (error) {
-        console.error('Error checking chapter validity:', error);
+        console.error('Error checking chapter range:', error);
+        return false;
+    }
+}
+
+// ====== Helper: Check if Someone is Already Working on This Chapter ======
+async function isSomeoneWorkingOnChapter(channelId, chapterNum, role) {
+    try {
+        const response = await sheetsClient.spreadsheets.values.get({
+            spreadsheetId: OLD_SHEET_ID,
+            range: `${WORKING_NOW_PAGE}!C:F`
+        });
+
+        const rows = response.data.values || [];
+        const normalizedRole = role.toUpperCase();
+
+        for (const row of rows) {
+            const workChapter = row[0]?.toString().trim(); // Column C (index 0)
+            const workRole = row[1]?.trim().toUpperCase(); // Column D (index 1)
+            const workChannelId = row[3]?.trim(); // Column F (index 3)
+
+            if (workChannelId === channelId && 
+                workChapter === chapterNum.toString() && 
+                workRole === normalizedRole) {
+                return true;
+            }
+        }
+
+        return false;
+    } catch (error) {
+        console.error('Error checking working now:', error);
         return false;
     }
 }
@@ -165,10 +202,18 @@ export function startWorkTracker(client) {
                 return;
             }
 
-            // Check if chapter is valid (less than RAW progress)
-            const isValid = await isChapterValid(seriesInfo.rowNumber, chapterNum);
-            if (!isValid) {
-                console.log(`❌ Chapter ${chapterNum} exceeds RAW progress`);
+            // Check if chapter is within valid range (N+1 to D)
+            const isInRange = await isChapterInValidRange(seriesInfo.rowNumber, chapterNum);
+            if (!isInRange) {
+                console.log(`❌ Chapter ${chapterNum} is not in valid range (ED+1 to RAW)`);
+                await message.react('❌');
+                return;
+            }
+
+            // Check if someone is already working on this chapter
+            const alreadyWorking = await isSomeoneWorkingOnChapter(seriesInfo.channelId, chapterNum, role);
+            if (alreadyWorking) {
+                console.log(`❌ Someone is already working on: ${seriesInfo.seriesName} Ch${chapterNum} (${role})`);
                 await message.react('❌');
                 return;
             }
