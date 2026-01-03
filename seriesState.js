@@ -75,7 +75,7 @@ async function getCurrentWorkers(channelId) {
     try {
         const response = await sheetsClient.spreadsheets.values.get({
             spreadsheetId: OLD_SHEET_ID,
-            range: `${WORKING_NOW_PAGE}!A:F`
+            range: `${WORKING_NOW_PAGE}!A:G`
         });
 
         const rows = response.data.values || [];
