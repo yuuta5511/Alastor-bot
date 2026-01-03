@@ -87,6 +87,7 @@ async function getCurrentWorkers(channelId) {
             if (workChannelId === channelId) {
                 workers.push({
                     username: row[0] || '',        // Column A
+                    userId: row[6] || '',          // Column G - user ID
                     chapter: parseInt(row[2] || 0), // Column C
                     role: row[3] || '',            // Column D
                     timestamp: row[4] || ''        // Column E
@@ -183,8 +184,9 @@ export const seriesStateCommand = {
                 const worker = workers.find(w => w.chapter === ch);
                 if (worker) {
                     const hoursAgo = getHoursAgo(worker.timestamp);
-                    // Display username with @ (no actual mention)
-                    line += ` | Working: @${worker.username} (${worker.role}) - ${hoursAgo}h ago`;
+                    // Display with user ID mention
+                    const userMention = worker.userId ? `<@${worker.userId}>` : `@${worker.username}`;
+                    line += ` | Working: ${userMention} (${worker.role}) - ${hoursAgo}h ago`;
                 }
 
                 chapterList += line + '\n';
