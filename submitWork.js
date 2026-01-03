@@ -236,7 +236,7 @@ async function addToLog(username, seriesName, chapterNum, role, timestamp, chann
 }
 
 // ====== Helper: Send Submission Notification ======
-async function sendSubmissionNotification(client, username, seriesName, chapterNum, role) {
+async function sendSubmissionNotification(client, userId, username, seriesName, chapterNum, role) {
     try {
         const channel = client.channels.cache.get(SUBMISSION_CHANNEL_ID);
         
@@ -246,8 +246,8 @@ async function sendSubmissionNotification(client, username, seriesName, chapterN
         }
 
         await channel.send({
-            content: `@${username} Submitted Chapter: ${chapterNum} of ${seriesName} as ${role}`,
-            allowedMentions: { parse: [] } // Don't actually mention, just display @username
+            content: `<@${userId}> Submitted Chapter: ${chapterNum} of ${seriesName} as ${role}`,
+            allowedMentions: { parse: ['users'] } // Allow user mentions
         });
 
         console.log(`✅ Submission notification sent for ${username} - ${seriesName} Ch${chapterNum} (${role})`);
@@ -358,7 +358,7 @@ export const submitCommand = {
             await addPointsToUser(username, points);
 
             // Send submission notification to designated channel
-            await sendSubmissionNotification(interaction.client, username, seriesName, chapterNum, role);
+            await sendSubmissionNotification(interaction.client, interaction.user.id, username, seriesName, chapterNum, role);
 
             await interaction.editReply({
                 content: `✅ Work submitted successfully!\n\n` +
