@@ -231,6 +231,7 @@ export function startWorkTracker(client) {
             const timestamp = new Date().toISOString();
             const added = await addToWorkingNow(
                 message.author.username,
+                message.author.id,
                 seriesInfo.seriesName,
                 chapterNum,
                 role,
