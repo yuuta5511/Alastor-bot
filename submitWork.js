@@ -8,6 +8,7 @@ const CONFIG_PAGE = 'Config';
 const WORKING_NOW_PAGE = 'Working now';
 const LOG_PAGE = 'Log';
 const PROGRESS_PAGE = 'PROGRESS';
+const SUBMISSION_CHANNEL_ID = '1456412158098145403';
 
 const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
 const auth = new google.auth.GoogleAuth({
@@ -234,6 +235,29 @@ async function addToLog(username, seriesName, chapterNum, role, timestamp, chann
     }
 }
 
+// ====== Helper: Send Submission Notification ======
+async function sendSubmissionNotification(client, username, seriesName, chapterNum, role) {
+    try {
+        const channel = client.channels.cache.get(SUBMISSION_CHANNEL_ID);
+        
+        if (!channel || !channel.isTextBased()) {
+            console.error(`❌ Submission channel ${SUBMISSION_CHANNEL_ID} not found or not a text channel`);
+            return false;
+        }
+
+        await channel.send({
+            content: `@${username} Submitted Chapter: ${chapterNum} of ${seriesName} as ${role}`,
+            allowedMentions: { parse: [] } // Don't actually mention, just display @username
+        });
+
+        console.log(`✅ Submission notification sent for ${username} - ${seriesName} Ch${chapterNum} (${role})`);
+        return true;
+    } catch (error) {
+        console.error('Error sending submission notification:', error);
+        return false;
+    }
+}
+
 // ====== /submit Command ======
 export const submitCommand = {
     data: new SlashCommandBuilder()
@@ -332,6 +356,9 @@ export const submitCommand = {
 
             // Add points to user's total
             await addPointsToUser(username, points);
+
+            // Send submission notification to designated channel
+            await sendSubmissionNotification(interaction.client, username, seriesName, chapterNum, role);
 
             await interaction.editReply({
                 content: `✅ Work submitted successfully!\n\n` +
