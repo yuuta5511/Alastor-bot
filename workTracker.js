@@ -140,7 +140,7 @@ async function isSomeoneWorkingOnChapter(channelId, chapterNum, role) {
 }
 
 // ====== Helper: Add Work to "Working now" Sheet ======
-async function addToWorkingNow(username, seriesName, chapterNum, role, timestamp, channelId) {
+async function addToWorkingNow(username, userId, seriesName, chapterNum, role, timestamp, channelId) {
     try {
         const rowData = [
             username,           // Column A
@@ -148,12 +148,13 @@ async function addToWorkingNow(username, seriesName, chapterNum, role, timestamp
             chapterNum,         // Column C
             role.toUpperCase(), // Column D
             timestamp,          // Column E
-            channelId           // Column F
+            channelId,          // Column F
+            userId              // Column G - User ID
         ];
 
         await sheetsClient.spreadsheets.values.append({
             spreadsheetId: OLD_SHEET_ID,
-            range: `${WORKING_NOW_PAGE}!A:F`,
+            range: `${WORKING_NOW_PAGE}!A:G`,
             valueInputOption: 'RAW',
             insertDataOption: 'INSERT_ROWS',
             requestBody: {
