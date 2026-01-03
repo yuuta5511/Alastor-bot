@@ -183,7 +183,7 @@ export const seriesStateCommand = {
                 const worker = workers.find(w => w.chapter === ch);
                 if (worker) {
                     const hoursAgo = getHoursAgo(worker.timestamp);
-                    // Display username without @ mention
+                    // Display username with @ (no actual mention)
                     line += ` | Working: @${worker.username} (${worker.role}) - ${hoursAgo}h ago`;
                 }
 
