@@ -1,10 +1,11 @@
-// alertSystem.js - Monitor work progress and send alerts for late work
+// paymentSystem.js - Handle user registration and points management
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { google } from 'googleapis';
 
-const OLD_SHEET_ID = '1CKbgNt7yMMm3H_s6n3wxKVrDcedyEdZHDjKFUGFLlLU';
-const WORKING_NOW_PAGE = 'Working now';
-const ADMIN_ROLE_ID = '1269706276309569581';
+const REGISTRATION_SHEET_ID = '167xw-xO0WcqllRhbChQ3vG_I4f9GqipmunditHFkpeg';
+const MAIN_PAGE = 'Main';
 
+// Initialize Google Sheets client
 const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
 const auth = new google.auth.GoogleAuth({
     credentials: creds,
@@ -17,148 +18,309 @@ let sheetsClient;
     sheetsClient = google.sheets({ version: 'v4', auth: client });
 })();
 
-// Track which works have been alerted
-const alertedWorks = new Map(); // Key: "username-channelId-chapter", Value: { sixHour: bool, twelveHour: bool }
+// ====== /register Command ======
+export const registerCommand = {
+    data: new SlashCommandBuilder()
+        .setName('register')
+        .setDescription('Register your payment information')
+        .addStringOption(option =>
+            option.setName('email')
+                .setDescription('Your email address')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('payment_method')
+                .setDescription('Choose your payment method')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Binance', value: 'binance' },
+                    { name: 'PayPal', value: 'paypal' }
+                ))
+        .addStringOption(option =>
+            option.setName('payment_id')
+                .setDescription('Your Binance ID or PayPal email/link')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('account_name')
+                .setDescription('Your account name')
+                .setRequired(true)),
 
-// ====== Helper: Get Hours Since Timestamp ======
-function getHoursSince(timestamp) {
-    try {
-        const past = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now - past;
-        const hours = diffMs / (1000 * 60 * 60);
-        return hours;
-    } catch (error) {
-        return 0;
+    async execute(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const username = interaction.user.username;
+            const accountName = interaction.options.getString('account_name');
+            const email = interaction.options.getString('email');
+            const paymentMethod = interaction.options.getString('payment_method');
+            const paymentId = interaction.options.getString('payment_id');
+
+            // Check if user already registered
+            const existingData = await sheetsClient.spreadsheets.values.get({
+                spreadsheetId: REGISTRATION_SHEET_ID,
+                range: `${MAIN_PAGE}!A:A`
+            });
+
+            const rows = existingData.data.values || [];
+            const existingRow = rows.findIndex(row => row[0] === username);
+
+            let binanceId = '';
+            let paypalInfo = '';
+
+            if (paymentMethod === 'binance') {
+                binanceId = paymentId;
+            } else {
+                paypalInfo = paymentId;
+            }
+
+            const rowData = [username, accountName, email, binanceId, paypalInfo, 0]; // 0 for initial total points
+
+            if (existingRow !== -1) {
+                // Update existing registration
+                const rowNumber = existingRow + 1;
+                await sheetsClient.spreadsheets.values.update({
+                    spreadsheetId: REGISTRATION_SHEET_ID,
+                    range: `${MAIN_PAGE}!A${rowNumber}:E${rowNumber}`,
+                    valueInputOption: 'RAW',
+                    requestBody: {
+                        values: [rowData.slice(0, 5)]
+                    }
+                });
+
+                await interaction.editReply({
+                    content: `✅ Registration updated successfully!\n` +
+                             `**Username:** ${username}\n` +
+                             `**Account Name:** ${accountName}\n` +
+                             `**Email:** ${email}\n` +
+                             `**Payment Method:** ${paymentMethod === 'binance' ? 'Binance' : 'PayPal'}\n` +
+                             `**Payment ID:** ${paymentId}`
+                });
+            } else {
+                // Append new registration
+                await sheetsClient.spreadsheets.values.append({
+                    spreadsheetId: REGISTRATION_SHEET_ID,
+                    range: `${MAIN_PAGE}!A:F`,
+                    valueInputOption: 'RAW',
+                    insertDataOption: 'INSERT_ROWS',
+                    requestBody: {
+                        values: [rowData]
+                    }
+                });
+
+                await interaction.editReply({
+                    content: `✅ Registration successful!\n` +
+                             `**Username:** ${username}\n` +
+                             `**Account Name:** ${accountName}\n` +
+                             `**Email:** ${email}\n` +
+                             `**Payment Method:** ${paymentMethod === 'binance' ? 'Binance' : 'PayPal'}\n` +
+                             `**Payment ID:** ${paymentId}\n\n` +
+                             `You can now start tracking your work!`
+                });
+            }
+
+            console.log(`✅ User ${username} registered/updated payment info`);
+
+        } catch (error) {
+            console.error('Error in /register command:', error);
+            await interaction.editReply({
+                content: `❌ An error occurred while registering: ${error.message}`
+            });
+        }
     }
-}
+};
 
-// ====== Helper: Check and Alert Late Work ======
-async function checkLateWork(client) {
+// ====== /mypoints Command ======
+export const mypointsCommand = {
+    data: new SlashCommandBuilder()
+        .setName('mypoints')
+        .setDescription('Check your current points balance'),
+
+    async execute(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const username = interaction.user.username;
+
+            const response = await sheetsClient.spreadsheets.values.get({
+                spreadsheetId: REGISTRATION_SHEET_ID,
+                range: `${MAIN_PAGE}!A:F`
+            });
+
+            const rows = response.data.values || [];
+            const userRow = rows.find(row => row[0] === username);
+
+            if (!userRow) {
+                return interaction.editReply({
+                    content: `❌ You are not registered yet!\n` +
+                             `Please use \`/register\` command first to register your payment information.`
+                });
+            }
+
+            const points = parseFloat(userRow[5] || 0);
+            const accountName = userRow[1] || 'N/A';
+
+            await interaction.editReply({
+                content: `💰 **Your Points Balance**\n\n` +
+                         `**Username:** ${username}\n` +
+                         `**Account Name:** ${accountName}\n` +
+                         `**Total Points:** ${points} points\n\n` +
+                         `Keep up the good work! 🎉`
+            });
+
+            console.log(`✅ ${username} checked their points: ${points}`);
+
+        } catch (error) {
+            console.error('Error in /mypoints command:', error);
+            await interaction.editReply({
+                content: `❌ An error occurred: ${error.message}`
+            });
+        }
+    }
+};
+
+// ====== /deduct Command ======
+export const deductCommand = {
+    data: new SlashCommandBuilder()
+        .setName('deduct')
+        .setDescription('Deduct points from a user (Admin only)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addUserOption(option =>
+            option.setName('from')
+                .setDescription('Select the user to deduct points from')
+                .setRequired(true))
+        .addNumberOption(option =>
+            option.setName('amount')
+                .setDescription('Amount of points to deduct')
+                .setRequired(true)
+                .setMinValue(0))
+        .addStringOption(option =>
+            option.setName('reason')
+                .setDescription('Reason for deduction (optional)')
+                .setRequired(false)),
+
+    async execute(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const targetUser = interaction.options.getUser('from');
+            const amount = interaction.options.getNumber('amount');
+            const reason = interaction.options.getString('reason');
+            const adminUser = interaction.user;
+
+            const username = targetUser.username;
+
+            // Find user in sheet
+            const response = await sheetsClient.spreadsheets.values.get({
+                spreadsheetId: REGISTRATION_SHEET_ID,
+                range: `${MAIN_PAGE}!A:F`
+            });
+
+            const rows = response.data.values || [];
+            const userRowIndex = rows.findIndex(row => row[0] === username);
+
+            if (userRowIndex === -1) {
+                return interaction.editReply({
+                    content: `❌ User **${username}** is not registered in the system!`
+                });
+            }
+
+            const rowNumber = userRowIndex + 1;
+            const currentPoints = parseFloat(rows[userRowIndex][5] || 0);
+            const newPoints = Math.max(0, currentPoints - amount); // Prevent negative points
+
+            // Update points in sheet
+            await sheetsClient.spreadsheets.values.update({
+                spreadsheetId: REGISTRATION_SHEET_ID,
+                range: `${MAIN_PAGE}!F${rowNumber}`,
+                valueInputOption: 'RAW',
+                requestBody: {
+                    values: [[newPoints]]
+                }
+            });
+
+            // Send DM or message to user
+            try {
+                const guild = interaction.guild;
+                const member = await guild.members.fetch(targetUser.id).catch(() => null);
+                
+                if (member) {
+                    // Try to send DM
+                    try {
+                        let dmMessage = `<@${targetUser.id}> you got a ${amount} deduction by <@${adminUser.id}>`;
+                        if (reason) {
+                            dmMessage += `\nReason: ${reason}`;
+                        }
+                        
+                        await targetUser.send(dmMessage);
+                    } catch (dmError) {
+                        console.log('Could not send DM to user, they may have DMs disabled');
+                    }
+                }
+            } catch (error) {
+                console.error('Error notifying user:', error);
+            }
+
+            // Build success message
+            let successMessage = `✅ Successfully deducted ${amount} points from <@${targetUser.id}>\n\n` +
+                                `**Previous Balance:** ${currentPoints} points\n` +
+                                `**Amount Deducted:** ${amount} points\n` +
+                                `**New Balance:** ${newPoints} points`;
+            
+            if (reason) {
+                successMessage += `\n**Reason:** ${reason}`;
+            }
+
+            await interaction.editReply({
+                content: successMessage,
+                allowedMentions: { parse: ['users'] }
+            });
+
+            console.log(`✅ Admin ${adminUser.username} deducted ${amount} points from ${username}. New balance: ${newPoints}`);
+
+        } catch (error) {
+            console.error('Error in /deduct command:', error);
+            await interaction.editReply({
+                content: `❌ An error occurred: ${error.message}`
+            });
+        }
+    }
+};
+
+// ====== Helper Function: Add Points to User ======
+export async function addPointsToUser(username, points) {
     try {
         const response = await sheetsClient.spreadsheets.values.get({
-            spreadsheetId: OLD_SHEET_ID,
-            range: `${WORKING_NOW_PAGE}!A:F`
+            spreadsheetId: REGISTRATION_SHEET_ID,
+            range: `${MAIN_PAGE}!A:F`
         });
 
         const rows = response.data.values || [];
+        const userRowIndex = rows.findIndex(row => row[0] === username);
 
-        for (const row of rows) {
-            const username = row[0]?.trim();
-            const seriesName = row[1]?.trim();
-            const chapter = row[2]?.toString().trim();
-            const role = row[3]?.trim();
-            const timestamp = row[4]?.trim();
-            const channelId = row[5]?.trim();
+        if (userRowIndex === -1) {
+            console.error(`❌ User ${username} not found in registration sheet`);
+            return false;
+        }
 
-            if (!username || !timestamp || !channelId) continue;
+        const rowNumber = userRowIndex + 1;
+        const currentPoints = parseFloat(rows[userRowIndex][5] || 0);
+        const newPoints = currentPoints + points;
 
-            const hoursSince = getHoursSince(timestamp);
-            const workKey = `${username}-${channelId}-${chapter}`;
-
-            // Initialize alert tracking for this work if not exists
-            if (!alertedWorks.has(workKey)) {
-                alertedWorks.set(workKey, { sixHour: false, twelveHour: false });
+        await sheetsClient.spreadsheets.values.update({
+            spreadsheetId: REGISTRATION_SHEET_ID,
+            range: `${MAIN_PAGE}!F${rowNumber}`,
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: [[newPoints]]
             }
-
-            const alerts = alertedWorks.get(workKey);
-
-            // Check for 6-hour alert
-            if (hoursSince >= 6 && !alerts.sixHour) {
-                await sendLateAlert(client, channelId, username, seriesName, chapter, role, 6);
-                alerts.sixHour = true;
-                alertedWorks.set(workKey, alerts);
-            }
-
-            // Check for 12-hour alert
-            if (hoursSince >= 12 && !alerts.twelveHour) {
-                await sendLateAlert(client, channelId, username, seriesName, chapter, role, 12);
-                alerts.twelveHour = true;
-                alertedWorks.set(workKey, alerts);
-            }
-        }
-
-        // Clean up alertedWorks Map for completed works
-        cleanupAlertMap(rows);
-
-    } catch (error) {
-        console.error('Error checking late work:', error);
-    }
-}
-
-// ====== Helper: Clean Up Alert Map ======
-function cleanupAlertMap(currentRows) {
-    const currentWorkKeys = new Set();
-    
-    for (const row of currentRows) {
-        const username = row[0]?.trim();
-        const chapter = row[2]?.toString().trim();
-        const channelId = row[5]?.trim();
-        
-        if (username && chapter && channelId) {
-            currentWorkKeys.add(`${username}-${channelId}-${chapter}`);
-        }
-    }
-
-    // Remove entries that are no longer in Working now sheet
-    for (const key of alertedWorks.keys()) {
-        if (!currentWorkKeys.has(key)) {
-            alertedWorks.delete(key);
-        }
-    }
-}
-
-// ====== Helper: Send Late Alert ======
-async function sendLateAlert(client, channelId, username, seriesName, chapter, role, hours) {
-    try {
-        const channel = client.channels.cache.get(channelId);
-        
-        if (!channel || !channel.isTextBased()) {
-            console.error(`❌ Channel ${channelId} not found or not a text channel`);
-            return;
-        }
-
-        const message = hours === 6 
-            ? `⚠️ **Late Work Alert** ⚠️\n\n` +
-              `<@&${ADMIN_ROLE_ID}> @${username}\n\n` +
-              `**Series:** ${seriesName}\n` +
-              `**Chapter:** ${chapter}\n` +
-              `**Role:** ${role}\n\n` +
-              `⏰ **6 hours** have passed since work started. Please check on the progress!`
-            : `🚨 **URGENT: Late Work Alert** 🚨\n\n` +
-              `<@&${ADMIN_ROLE_ID}> @${username}\n\n` +
-              `**Series:** ${seriesName}\n` +
-              `**Chapter:** ${chapter}\n` +
-              `**Role:** ${role}\n\n` +
-              `⏰ **12 HOURS** have passed and the chapter is still not done!`;
-
-        await channel.send({
-            content: message,
-            allowedMentions: { parse: ['roles', 'users'] }
         });
 
-        console.log(`⚠️ Sent ${hours}h late alert for ${username} - ${seriesName} Ch${chapter}`);
+        console.log(`✅ Added ${points} points to ${username}. New total: ${newPoints}`);
+        return true;
 
     } catch (error) {
-        console.error('Error sending late alert:', error);
+        console.error('Error adding points:', error);
+        return false;
     }
 }
 
-// ====== Main Function: Start Alert System ======
-export function startAlertSystem(client) {
-    console.log('⏰ Starting work alert system...');
-
-    // Check every 10 minutes
-    const CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes in milliseconds
-
-    setInterval(() => {
-        checkLateWork(client);
-    }, CHECK_INTERVAL);
-
-    // Initial check after 1 minute to avoid startup race conditions
-    setTimeout(() => {
-        checkLateWork(client);
-    }, 60 * 1000);
-
-    console.log('✅ Work alert system started (checking every 10 minutes)');
-}
+export { sheetsClient as paymentSheetsClient };
