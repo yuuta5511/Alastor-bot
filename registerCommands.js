@@ -116,6 +116,26 @@ const commands = [
                 .setDescription('Your account name')
                 .setRequired(true)),
     new SlashCommandBuilder()
+        .setName('mypoints')
+        .setDescription('Check your current points balance'),
+    new SlashCommandBuilder()
+        .setName('deduct')
+        .setDescription('Deduct points from a user (Admin only)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addUserOption(option =>
+            option.setName('from')
+                .setDescription('Select the user to deduct points from')
+                .setRequired(true))
+        .addNumberOption(option =>
+            option.setName('amount')
+                .setDescription('Amount of points to deduct')
+                .setRequired(true)
+                .setMinValue(0))
+        .addStringOption(option =>
+            option.setName('reason')
+                .setDescription('Reason for deduction (optional)')
+                .setRequired(false)),
+    new SlashCommandBuilder()
         .setName('series')
         .setDescription('Check series progress')
         .addSubcommand(subcommand =>
