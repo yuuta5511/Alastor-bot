@@ -1,5 +1,5 @@
-// paymentSystem.js - Handle user registration for payment tracking
-import { SlashCommandBuilder } from 'discord.js';
+// paymentSystem.js - Handle user registration and points management
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { google } from 'googleapis';
 
 const REGISTRATION_SHEET_ID = '167xw-xO0WcqllRhbChQ3vG_I4f9GqipmunditHFkpeg';
@@ -123,6 +123,163 @@ export const registerCommand = {
             console.error('Error in /register command:', error);
             await interaction.editReply({
                 content: `❌ An error occurred while registering: ${error.message}`
+            });
+        }
+    }
+};
+
+// ====== /mypoints Command ======
+export const mypointsCommand = {
+    data: new SlashCommandBuilder()
+        .setName('mypoints')
+        .setDescription('Check your current points balance'),
+
+    async execute(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const username = interaction.user.username;
+
+            const response = await sheetsClient.spreadsheets.values.get({
+                spreadsheetId: REGISTRATION_SHEET_ID,
+                range: `${MAIN_PAGE}!A:F`
+            });
+
+            const rows = response.data.values || [];
+            const userRow = rows.find(row => row[0] === username);
+
+            if (!userRow) {
+                return interaction.editReply({
+                    content: `❌ You are not registered yet!\n` +
+                             `Please use \`/register\` command first to register your payment information.`
+                });
+            }
+
+            const points = parseFloat(userRow[5] || 0);
+            const accountName = userRow[1] || 'N/A';
+
+            await interaction.editReply({
+                content: `💰 **Your Points Balance**\n\n` +
+                         `**Username:** ${username}\n` +
+                         `**Account Name:** ${accountName}\n` +
+                         `**Total Points:** ${points} points\n\n` +
+                         `Keep up the good work! 🎉`
+            });
+
+            console.log(`✅ ${username} checked their points: ${points}`);
+
+        } catch (error) {
+            console.error('Error in /mypoints command:', error);
+            await interaction.editReply({
+                content: `❌ An error occurred: ${error.message}`
+            });
+        }
+    }
+};
+
+// ====== /deduct Command ======
+export const deductCommand = {
+    data: new SlashCommandBuilder()
+        .setName('deduct')
+        .setDescription('Deduct points from a user (Admin only)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addUserOption(option =>
+            option.setName('from')
+                .setDescription('Select the user to deduct points from')
+                .setRequired(true))
+        .addNumberOption(option =>
+            option.setName('amount')
+                .setDescription('Amount of points to deduct')
+                .setRequired(true)
+                .setMinValue(0))
+        .addStringOption(option =>
+            option.setName('reason')
+                .setDescription('Reason for deduction (optional)')
+                .setRequired(false)),
+
+    async execute(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const targetUser = interaction.options.getUser('from');
+            const amount = interaction.options.getNumber('amount');
+            const reason = interaction.options.getString('reason');
+            const adminUser = interaction.user;
+
+            const username = targetUser.username;
+
+            // Find user in sheet
+            const response = await sheetsClient.spreadsheets.values.get({
+                spreadsheetId: REGISTRATION_SHEET_ID,
+                range: `${MAIN_PAGE}!A:F`
+            });
+
+            const rows = response.data.values || [];
+            const userRowIndex = rows.findIndex(row => row[0] === username);
+
+            if (userRowIndex === -1) {
+                return interaction.editReply({
+                    content: `❌ User **${username}** is not registered in the system!`
+                });
+            }
+
+            const rowNumber = userRowIndex + 1;
+            const currentPoints = parseFloat(rows[userRowIndex][5] || 0);
+            const newPoints = Math.max(0, currentPoints - amount); // Prevent negative points
+
+            // Update points in sheet
+            await sheetsClient.spreadsheets.values.update({
+                spreadsheetId: REGISTRATION_SHEET_ID,
+                range: `${MAIN_PAGE}!F${rowNumber}`,
+                valueInputOption: 'RAW',
+                requestBody: {
+                    values: [[newPoints]]
+                }
+            });
+
+            // Send DM or message to user
+            try {
+                const guild = interaction.guild;
+                const member = await guild.members.fetch(targetUser.id).catch(() => null);
+                
+                if (member) {
+                    // Try to send DM
+                    try {
+                        let dmMessage = `<@${targetUser.id}> you got a ${amount} deduction by <@${adminUser.id}>`;
+                        if (reason) {
+                            dmMessage += `\nReason: ${reason}`;
+                        }
+                        
+                        await targetUser.send(dmMessage);
+                    } catch (dmError) {
+                        console.log('Could not send DM to user, they may have DMs disabled');
+                    }
+                }
+            } catch (error) {
+                console.error('Error notifying user:', error);
+            }
+
+            // Build success message
+            let successMessage = `✅ Successfully deducted ${amount} points from <@${targetUser.id}>\n\n` +
+                                `**Previous Balance:** ${currentPoints} points\n` +
+                                `**Amount Deducted:** ${amount} points\n` +
+                                `**New Balance:** ${newPoints} points`;
+            
+            if (reason) {
+                successMessage += `\n**Reason:** ${reason}`;
+            }
+
+            await interaction.editReply({
+                content: successMessage,
+                allowedMentions: { parse: ['users'] }
+            });
+
+            console.log(`✅ Admin ${adminUser.username} deducted ${amount} points from ${username}. New balance: ${newPoints}`);
+
+        } catch (error) {
+            console.error('Error in /deduct command:', error);
+            await interaction.editReply({
+                content: `❌ An error occurred: ${error.message}`
             });
         }
     }
