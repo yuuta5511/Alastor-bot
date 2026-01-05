@@ -237,29 +237,18 @@ export const deductCommand = {
                 }
             });
 
-            // Send DM or message to user
-            try {
-                const guild = interaction.guild;
-                const member = await guild.members.fetch(targetUser.id).catch(() => null);
-                
-                if (member) {
-                    // Try to send DM
-                    try {
-                        let dmMessage = `<@${targetUser.id}> you got a ${amount} deduction by <@${adminUser.id}>`;
-                        if (reason) {
-                            dmMessage += `\nReason: ${reason}`;
-                        }
-                        
-                        await targetUser.send(dmMessage);
-                    } catch (dmError) {
-                        console.log('Could not send DM to user, they may have DMs disabled');
-                    }
-                }
-            } catch (error) {
-                console.error('Error notifying user:', error);
+            // Send message in the current channel
+            let publicMessage = `<@${targetUser.id}> you got a $${amount} deduction by <@${adminUser.id}>`;
+            if (reason) {
+                publicMessage += `\nReason: ${reason}`;
             }
 
-            // Build success message
+            await interaction.channel.send({
+                content: publicMessage,
+                allowedMentions: { parse: ['users'] }
+            });
+
+            // Build success message for admin
             let successMessage = `✅ Successfully deducted ${amount} points from <@${targetUser.id}>\n\n` +
                                 `**Previous Balance:** ${currentPoints} points\n` +
                                 `**Amount Deducted:** ${amount} points\n` +
