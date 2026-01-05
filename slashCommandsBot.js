@@ -5,7 +5,7 @@ import weekliesCommand from './weekliesCommand.js';
 import hiatusCommand from './hiatusCommand.js';
 import { handleWeeklyModal } from './autoWeeklies.js';
 import { requestCommand, assignCommand, updateMembersCommand, handleAcceptButton } from './projectCommands.js';
-import { registerCommand } from './paymentSystem.js';
+import { registerCommand, mypointsCommand, deductCommand } from './paymentSystem.js';
 import { seriesStateCommand } from './seriesState.js';
 import { submitCommand } from './submitWork.js';
 
@@ -44,6 +44,8 @@ slashBot.slashCommands.set(weekliesCommand.data.name, weekliesCommand);
 slashBot.slashCommands.set(hiatusCommand.data.name, hiatusCommand);
 slashBot.slashCommands.set(updateMembersCommand.data.name, updateMembersCommand);
 slashBot.slashCommands.set(registerCommand.data.name, registerCommand);
+slashBot.slashCommands.set(mypointsCommand.data.name, mypointsCommand);
+slashBot.slashCommands.set(deductCommand.data.name, deductCommand);
 slashBot.slashCommands.set(seriesStateCommand.data.name, seriesStateCommand);
 slashBot.slashCommands.set(submitCommand.data.name, submitCommand);
 
