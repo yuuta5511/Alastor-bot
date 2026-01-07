@@ -312,4 +312,183 @@ export async function addPointsToUser(username, points) {
     }
 }
 
+// ====== /lazy Command (Admin only) ======
+export const lazyCommand = {
+    data: new SlashCommandBuilder()
+        .setName('lazy')
+        .setDescription('List inactive members by role (Admin only)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addStringOption(option =>
+            option.setName('role')
+                .setDescription('Select role to check')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Editor (ED)', value: 'ED' },
+                    { name: 'Proofreader (PR)', value: 'PR' },
+                    { name: 'Translator KTL', value: 'KTL' },
+                    { name: 'Translator JTL', value: 'JTL' },
+                    { name: 'Translator CTL', value: 'CTL' },
+                    { name: 'ALL ROLES', value: 'ALL' }
+                )),
+
+    async execute(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            const selectedRole = interaction.options.getString('role');
+
+            // Column mapping for inactive members
+            const roleColumns = {
+                'ED': 'G',
+                'PR': 'H',
+                'KTL': 'I',
+                'JTL': 'J',
+                'CTL': 'K'
+            };
+
+            // Determine which columns to fetch
+            let columnsToFetch = [];
+            let roleLabels = [];
+
+            if (selectedRole === 'ALL') {
+                columnsToFetch = ['G', 'H', 'I', 'J', 'K'];
+                roleLabels = ['ED', 'PR', 'KTL', 'JTL', 'CTL'];
+            } else {
+                columnsToFetch = [roleColumns[selectedRole]];
+                roleLabels = [selectedRole];
+            }
+
+            // Get Members sheet data
+            const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+            const auth = new google.auth.GoogleAuth({
+                credentials: creds,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets']
+            });
+
+            const authClient = await auth.getClient();
+            const sheets = google.sheets({ version: 'v4', auth: authClient });
+            const spreadsheetId = process.env.SHEET_ID;
+            const sheetName = 'Members';
+
+            // Fetch all inactive columns
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: `${sheetName}!G3:K1000` // Fetch from row 3 onwards
+            });
+
+            const rows = response.data.values || [];
+
+            // Get guild to fetch members
+            const guild = interaction.guild;
+            await guild.members.fetch();
+
+            // Build the lazy list
+            let lazyList = `📋 **Inactive Members Report**\n\n`;
+
+            const columnMapping = { 'G': 0, 'H': 1, 'I': 2, 'J': 3, 'K': 4 };
+
+            for (let i = 0; i < roleLabels.length; i++) {
+                const role = roleLabels[i];
+                const column = columnsToFetch[i];
+                const columnIndex = columnMapping[column];
+
+                const members = [];
+
+                // Extract usernames from this column
+                for (const row of rows) {
+                    if (row[columnIndex] && row[columnIndex].trim()) {
+                        const username = row[columnIndex].trim();
+                        
+                        // Find member by username
+                        const member = guild.members.cache.find(m => m.user.username === username);
+                        
+                        if (member) {
+                            members.push(`<@${member.user.id}>`);
+                        } else {
+                            members.push(`@${username} (not found)`);
+                        }
+                    }
+                }
+
+                if (members.length > 0) {
+                    lazyList += `**${role}:** (${members.length})\n`;
+                    lazyList += members.join(', ') + '\n\n';
+                } else {
+                    lazyList += `**${role}:** No inactive members ✅\n\n`;
+                }
+            }
+
+            // If message is too long, split it
+            if (lazyList.length > 2000) {
+                const chunks = [];
+                let currentChunk = `📋 **Inactive Members Report**\n\n`;
+
+                for (let i = 0; i < roleLabels.length; i++) {
+                    const role = roleLabels[i];
+                    const column = columnsToFetch[i];
+                    const columnIndex = columnMapping[column];
+
+                    const members = [];
+
+                    for (const row of rows) {
+                        if (row[columnIndex] && row[columnIndex].trim()) {
+                            const username = row[columnIndex].trim();
+                            const member = guild.members.cache.find(m => m.user.username === username);
+                            
+                            if (member) {
+                                members.push(`<@${member.user.id}>`);
+                            } else {
+                                members.push(`@${username}`);
+                            }
+                        }
+                    }
+
+                    const roleSection = members.length > 0 
+                        ? `**${role}:** (${members.length})\n${members.join(', ')}\n\n`
+                        : `**${role}:** No inactive members ✅\n\n`;
+
+                    if ((currentChunk + roleSection).length > 1900) {
+                        chunks.push(currentChunk);
+                        currentChunk = roleSection;
+                    } else {
+                        currentChunk += roleSection;
+                    }
+                }
+
+                if (currentChunk.length > 0) {
+                    chunks.push(currentChunk);
+                }
+
+                // Send first chunk as reply
+                await interaction.editReply({ 
+                    content: chunks[0],
+                    allowedMentions: { parse: ['users'] }
+                });
+
+                // Send remaining chunks as follow-ups
+                for (let i = 1; i < chunks.length; i++) {
+                    await interaction.followUp({ 
+                        content: chunks[i],
+                        ephemeral: true,
+                        allowedMentions: { parse: ['users'] }
+                    });
+                }
+            } else {
+                await interaction.editReply({ 
+                    content: lazyList,
+                    allowedMentions: { parse: ['users'] }
+                });
+            }
+
+            console.log(`✅ Lazy list generated for ${selectedRole} by ${interaction.user.username}`);
+
+        } catch (error) {
+            console.error('Error in /lazy command:', error);
+            await interaction.editReply({
+                content: `❌ An error occurred: ${error.message}`
+            });
+        }
+    }
+};
+
 export { sheetsClient as paymentSheetsClient };
