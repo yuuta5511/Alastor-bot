@@ -136,6 +136,22 @@ const commands = [
                 .setDescription('Reason for deduction (optional)')
                 .setRequired(false)),
     new SlashCommandBuilder()
+        .setName('lazy')
+        .setDescription('List inactive members by role (Admin only)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addStringOption(option =>
+            option.setName('role')
+                .setDescription('Select role to check')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Editor (ED)', value: 'ED' },
+                    { name: 'Proofreader (PR)', value: 'PR' },
+                    { name: 'Translator KTL', value: 'KTL' },
+                    { name: 'Translator JTL', value: 'JTL' },
+                    { name: 'Translator CTL', value: 'CTL' },
+                    { name: 'ALL ROLES', value: 'ALL' }
+                )),
+    new SlashCommandBuilder()
         .setName('series')
         .setDescription('Check series progress')
         .addSubcommand(subcommand =>
